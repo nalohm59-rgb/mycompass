@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s http://localhost:5173)",
+      "Read(//tmp/**)",
+      "Bash(pkill -f \"vite\" 2>/dev/null; sleep 1; npm run dev &>/tmp/vite_dev.log & sleep 3 && cat /tmp/vite_dev.log)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp"
+    ]
+  }
+}
