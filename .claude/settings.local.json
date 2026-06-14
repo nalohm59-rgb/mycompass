@@ -10,7 +10,8 @@
       "Bash(pkill -f \"vite\" 2>/dev/null; sleep 1; npm run dev &>/tmp/vite_dev.log & sleep 3 && cat /tmp/vite_dev.log)",
       "Bash(python3 -c \"from PIL import Image; print\\('PIL OK'\\)\")",
       "Bash(python3 -c \"import cairosvg; print\\('cairosvg OK'\\)\")",
-      "Bash(python3)"
+      "Bash(python3)",
+      "Bash(npx prettier *)"
     ],
     "additionalDirectories": [
       "/private/tmp"

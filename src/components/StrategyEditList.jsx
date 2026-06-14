@@ -1,14 +1,19 @@
 import StrategyEditCard from './StrategyEditCard'
 
 export default function StrategyEditList({
-  strategies, onAdd, onUpdate, onDelete,
+  strategies,
+  allLinks,
+  allDreams,
+  onAdd,
+  onUpdate,
+  onDelete,
 }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">🎯</span>
-          <h3 className="text-sm font-semibold text-slate-700">戦略</h3>
+          <h3 className="text-sm font-semibold text-slate-700">全戦略</h3>
           {strategies.length > 0 && (
             <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
               {strategies.length}
@@ -35,14 +40,22 @@ export default function StrategyEditList({
         </div>
       )}
 
-      {strategies.map(strategy => (
-        <StrategyEditCard
-          key={strategy.id}
-          strategy={strategy}
-          onChange={patch => onUpdate(strategy.id, patch)}
-          onDelete={() => onDelete(strategy.id)}
-        />
-      ))}
+      {strategies.map((strategy) => {
+        const linkedDreams = (allLinks || [])
+          .filter((l) => l.strategyId === strategy.id)
+          .map((l) => (allDreams || []).find((d) => d.id === l.dreamId))
+          .filter(Boolean)
+
+        return (
+          <StrategyEditCard
+            key={strategy.id}
+            strategy={strategy}
+            linkedDreams={linkedDreams}
+            onChange={(patch) => onUpdate(strategy.id, patch)}
+            onDelete={() => onDelete(strategy.id)}
+          />
+        )
+      })}
     </div>
   )
 }

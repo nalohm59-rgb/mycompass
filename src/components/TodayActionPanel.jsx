@@ -1,22 +1,42 @@
 import { useState } from 'react'
-import {
-  getMilestoneStatus,
-  getActionPriorityScore,
-  getPriorityReason,
-} from '../utils/progress'
+import { getMilestoneStatus, getActionPriorityScore, getPriorityReason } from '../utils/progress'
 
 const CATEGORY_ICONS = {
-  home: '🏠', birth: '👶', money: '💰', career: '💼', health: '💪', life: '✨',
+  home: '🏠',
+  birth: '👶',
+  money: '💰',
+  career: '💼',
+  health: '💪',
+  life: '✨',
 }
 
-export default function TodayActionPanel({ actions, dreams, strategies, milestones, onToggle, onDelete }) {
+function getCompletionEffect(action, milestone, allActions) {
+  if (!milestone) return '行動進捗が進みます'
+  const msActions = allActions.filter((a) => a.milestoneId === milestone.id)
+  const completedBefore = msActions.filter((a) => a.completed).length
+  const total = msActions.length
+  const after = completedBefore + 1
+  const title = milestone.title || '（無題）'
+  return `マイルストーン「${title}」が ${completedBefore}/${total} → ${after}/${total} になります`
+}
+
+export default function TodayActionPanel({
+  actions,
+  allActions,
+  dreams,
+  strategies,
+  milestones,
+  allLinks,
+  onToggle,
+  onDelete,
+}) {
   const [showAll, setShowAll] = useState(false)
 
   if (actions.length === 0) return null
 
-  const actionsWithMeta = actions.map(action => {
-    const strategy = strategies.find(s => s.id === action.strategyId)
-    const milestone = milestones.find(m => m.id === action.milestoneId)
+  const actionsWithMeta = actions.map((action) => {
+    const strategy = strategies.find((s) => s.id === action.strategyId)
+    const milestone = milestones.find((m) => m.id === action.milestoneId)
     const computedStatus = milestone ? getMilestoneStatus(milestone, actions) : null
     const milestoneWithStatus = milestone ? { ...milestone, computedStatus } : null
     const score = getActionPriorityScore(action, strategy, milestoneWithStatus)
@@ -29,6 +49,10 @@ export default function TodayActionPanel({ actions, dreams, strategies, mileston
   const rest = sorted.slice(1)
   const visibleRest = showAll ? rest : rest.slice(0, 3)
 
+  const topEffect = top
+    ? getCompletionEffect(top.action, top.milestone, allActions ?? actions)
+    : null
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -39,19 +63,31 @@ export default function TodayActionPanel({ actions, dreams, strategies, mileston
         </span>
       </div>
 
-      {/* 最優先Action */}
-      {top && <TopAction item={top} dreams={dreams} onToggle={onToggle} onDelete={onDelete} />}
+      {top && (
+        <TopAction
+          item={top}
+          dreams={dreams}
+          allLinks={allLinks}
+          completionEffect={topEffect}
+          onToggle={onToggle}
+          onDelete={onDelete}
+        />
+      )}
 
-      {/* 2件目以降（コンパクト） */}
       {rest.length > 0 && (
         <div className="mt-3 space-y-1">
-          {visibleRest.map(item => (
-            <CompactAction key={item.action.id} item={item} onToggle={onToggle} onDelete={onDelete} />
+          {visibleRest.map((item) => (
+            <CompactAction
+              key={item.action.id}
+              item={item}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
           ))}
 
           {rest.length > 3 && (
             <button
-              onClick={() => setShowAll(v => !v)}
+              onClick={() => setShowAll((v) => !v)}
               className="w-full text-xs text-slate-400 hover:text-indigo-500 py-1.5 transition-colors"
             >
               {showAll ? '▲ 折りたたむ' : `▼ 残り ${rest.length - 3}件を表示`}
@@ -63,10 +99,19 @@ export default function TodayActionPanel({ actions, dreams, strategies, mileston
   )
 }
 
-function TopAction({ item, dreams, onToggle, onDelete }) {
+function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelete }) {
   const { action, strategy, milestone, reason } = item
-  const dream = dreams.find(d => d.id === action.dreamId)
+  const dream = dreams.find((d) => d.id === action.dreamId)
   const isOverdueAction = action.dueDate && new Date(action.dueDate) < new Date()
+
+  // このActionのStrategyに紐づく他の夢
+  const otherEffectingDreams =
+    action.strategyId && allLinks
+      ? allLinks
+          .filter((l) => l.strategyId === action.strategyId && l.dreamId !== action.dreamId)
+          .map((l) => dreams.find((d) => d.id === l.dreamId))
+          .filter(Boolean)
+      : []
 
   return (
     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
@@ -93,14 +138,32 @@ function TopAction({ item, dreams, onToggle, onDelete }) {
             </div>
           )}
 
+          {completionEffect && (
+            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5 leading-relaxed">
+              ✓ これを完了すると、{completionEffect}
+            </p>
+          )}
+
           {action.evidence && (
             <p className="text-xs text-slate-500 leading-relaxed">{action.evidence}</p>
           )}
 
+          {action.deadlineEvidence && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">なぜこの日まで？</p>
+              <p className="text-xs text-slate-500 leading-relaxed">{action.deadlineEvidence}</p>
+            </div>
+          )}
+
+          {action.consequenceIfDelayed && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">遅れると？</p>
+              <p className="text-xs text-red-500 leading-relaxed">{action.consequenceIfDelayed}</p>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-            {action.estimatedMinutes > 0 && (
-              <span>見積もり：{action.estimatedMinutes}分</span>
-            )}
+            {action.estimatedMinutes > 0 && <span>見積もり：{action.estimatedMinutes}分</span>}
             {action.dueDate && (
               <span className={isOverdueAction ? 'text-red-500 font-medium' : ''}>
                 期限：{new Date(action.dueDate).toLocaleDateString('ja-JP')}
@@ -111,24 +174,48 @@ function TopAction({ item, dreams, onToggle, onDelete }) {
 
           <div className="flex flex-wrap gap-x-1.5 text-xs text-slate-400">
             {dream && (
-              <span>{CATEGORY_ICONS[dream.category] ?? '✨'} {dream.title}</span>
+              <span>
+                {CATEGORY_ICONS[dream.category] ?? '✨'} {dream.title}
+              </span>
             )}
             {strategy?.title && (
-              <><span>›</span><span>{strategy.title}</span></>
+              <>
+                <span>›</span>
+                <span>{strategy.title}</span>
+              </>
             )}
             {milestone?.title && (
-              <><span>›</span><span>{milestone.title}</span></>
+              <>
+                <span>›</span>
+                <span>{milestone.title}</span>
+              </>
             )}
           </div>
+
+          {otherEffectingDreams.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              <span className="text-xs text-slate-400">他の夢にも効く：</span>
+              {otherEffectingDreams.map((d) => (
+                <span
+                  key={d.id}
+                  className="text-xs bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full"
+                >
+                  {CATEGORY_ICONS[d.category] ?? '✨'} {d.title}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <button
-          onClick={() => onDelete(action.id)}
-          className="text-slate-300 hover:text-red-400 transition-all text-lg leading-none flex-shrink-0 mt-0.5"
-          aria-label="削除"
-        >
-          ×
-        </button>
+        {onDelete && (
+          <button
+            onClick={() => onDelete(action.id)}
+            className="text-slate-300 hover:text-red-400 transition-all text-lg leading-none flex-shrink-0 mt-0.5"
+            aria-label="削除"
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   )
@@ -149,20 +236,25 @@ function CompactAction({ item, onToggle, onDelete }) {
       <div className="flex items-center gap-2 text-xs flex-shrink-0">
         {action.dueDate && (
           <span className={isOverdueAction ? 'text-red-500 font-medium' : 'text-indigo-400'}>
-            {new Date(action.dueDate).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+            {new Date(action.dueDate).toLocaleDateString('ja-JP', {
+              month: 'numeric',
+              day: 'numeric',
+            })}
           </span>
         )}
         {action.estimatedMinutes > 0 && (
           <span className="text-slate-400">{action.estimatedMinutes}分</span>
         )}
       </div>
-      <button
-        onClick={() => onDelete(action.id)}
-        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-base leading-none flex-shrink-0"
-        aria-label="削除"
-      >
-        ×
-      </button>
+      {onDelete && (
+        <button
+          onClick={() => onDelete(action.id)}
+          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-base leading-none flex-shrink-0"
+          aria-label="削除"
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }

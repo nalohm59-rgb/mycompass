@@ -1,16 +1,82 @@
-# React + Vite
+# MyCompass 🧭
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+夢や欲求を、つながった行動に変えるパーソナルロードマップアプリ。
 
-Currently, two official plugins are available:
+## 概要
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+「やりたいこと」はあるのに、どこから手をつければいいかわからない——そんな状態を解消するために作りました。  
+MyCompassは **夢 → 戦略 → マイルストーン → アクション** という階層でゴールを構造化し、今日やるべき「一手」を自動で提示します。
 
-## React Compiler
+## 主な機能
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 現状タブ（ダッシュボード）
+- **今日の一手**: 優先度スコア（期限・マイルストーン状態・金銭的インパクト・所要時間・根拠の有無）で自動ランキング
+- **完了効果プレビュー**: アクション完了時にマイルストーン進捗がどう変わるかをリアルタイム表示
+- **お金の現実**: 目標額・期限・現在ペースから月次不足額と戦略カバー率を算出
+- **ブロック検出**: 行き詰まりパターン（期限切れ・進捗0・孤立アクション）を自動検知
 
-## Expanding the ESLint configuration
+### ロードマップタブ
+- 戦略 → マイルストーン → アクションの階層をカード形式で可視化
+- マイルストーン・アクションのチェック完了操作
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 編集タブ
+- 夢・戦略・マイルストーン・アクションの作成・編集・削除
+- 戦略ごとに期待インパクト（月額換算）と信頼度を設定
+
+### その他
+- **PWA対応**: スマホのホーム画面に追加してオフラインでも使用可能
+- **ローカルストレージ永続化**: データはブラウザ内に保存、サーバー不要
+- **複数の夢を管理**: サイドバーから夢を切り替えてそれぞれのロードマップを確認
+
+## 技術スタック
+
+| 種別 | 技術 |
+|------|------|
+| フレームワーク | React 19 |
+| ビルドツール | Vite 8 |
+| スタイリング | Tailwind CSS 4 |
+| PWA | vite-plugin-pwa |
+| 状態管理 | useState / カスタムフック（useMyCompassStore） |
+| 永続化 | localStorage |
+
+## ディレクトリ構成
+
+```
+src/
+├── hooks/
+│   └── useMyCompassStore.js   # localStorage + 全CRUD
+├── utils/
+│   ├── factory.js             # エンティティ生成関数
+│   ├── migration.js           # データマイグレーション
+│   ├── progress.js            # 進捗計算・優先度スコア
+│   └── index.js               # 共通ユーティリティ
+├── components/
+│   ├── DashboardView.jsx      # 現状タブ（読む・判断する）
+│   ├── RoadmapView.jsx        # ロードマップタブ（進める）
+│   ├── EditView.jsx           # 編集タブ（入力する）
+│   └── ...
+└── App.jsx                    # レイアウト・タブ切り替えのみ
+```
+
+## 開発手順
+
+```bash
+npm install
+npm run dev      # 開発サーバー起動
+npm run build    # 本番ビルド
+npm run preview  # ビルド後のプレビュー
+```
+
+## データモデル
+
+```
+Dream（夢）
+└── Strategy（戦略）
+    └── Milestone（マイルストーン）
+        └── Action（アクション）
+```
+
+- **Dream**: 実現したい状態、目標金額、期限、現在額、月次ペース
+- **Strategy**: 夢へのアプローチ、期待インパクト（月額）、信頼度、ステータス
+- **Milestone**: 戦略上の通過点、完了定義、期限
+- **Action**: 具体的な行動、所要時間見積もり、根拠、期限

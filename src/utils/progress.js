@@ -22,12 +22,14 @@ export function formatYen(value) {
 }
 
 export function getMilestoneStatus(milestone, actions) {
-  const milestoneActions = actions.filter(a => a.milestoneId === milestone.id)
-  const completedActions = milestoneActions.filter(a => a.completed)
-  const actionProgress = milestoneActions.length > 0
-    ? Math.round((completedActions.length / milestoneActions.length) * 100)
-    : 0
-  const overdue = milestone.dueDate && new Date(milestone.dueDate) < new Date() && !milestone.completed
+  const milestoneActions = actions.filter((a) => a.milestoneId === milestone.id)
+  const completedActions = milestoneActions.filter((a) => a.completed)
+  const actionProgress =
+    milestoneActions.length > 0
+      ? Math.round((completedActions.length / milestoneActions.length) * 100)
+      : 0
+  const overdue =
+    milestone.dueDate && new Date(milestone.dueDate) < new Date() && !milestone.completed
   if (milestone.completed) return 'completed'
   if (overdue) return 'overdue'
   if (actionProgress > 0) return 'in_progress'
@@ -56,10 +58,10 @@ export function getActionPriorityScore(action, strategy, milestone) {
   if (action.dueDate) {
     const due = new Date(action.dueDate)
     const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays < 0)       score += 100
+    if (diffDays < 0) score += 100
     else if (diffDays === 0) score += 90
-    else if (diffDays <= 3)  score += 70
-    else if (diffDays <= 7)  score += 40
+    else if (diffDays <= 3) score += 70
+    else if (diffDays <= 7) score += 40
   }
   if (milestone?.computedStatus === 'in_progress') score += 30
   if (strategy?.impactUnit === 'monthly_yen') {
@@ -76,10 +78,10 @@ export function getPriorityReason(action, milestone) {
   if (action.dueDate) {
     const due = new Date(action.dueDate)
     const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays < 0)       reasons.push('期限が切れています')
+    if (diffDays < 0) reasons.push('期限が切れています')
     else if (diffDays === 0) reasons.push('本日が期限です')
-    else if (diffDays <= 3)  reasons.push('期限が3日以内に迫っています')
-    else if (diffDays <= 7)  reasons.push('期限が1週間以内に迫っています')
+    else if (diffDays <= 3) reasons.push('期限が3日以内に迫っています')
+    else if (diffDays <= 7) reasons.push('期限が1週間以内に迫っています')
   }
   if (milestone?.computedStatus === 'in_progress') {
     reasons.push('進行中のマイルストーンに紐づいています')

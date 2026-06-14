@@ -4,10 +4,16 @@ import MoneyRealityCard from './MoneyRealityCard'
 import BlockDetector from './BlockDetector'
 
 export default function DashboardView({
-  dream, strategies, milestones, actions,
-  onToggleAction, onDeleteAction,
+  dream,
+  strategies,
+  milestones,
+  actions,
+  links,
+  allDreams,
+  allLinks,
+  onToggleAction,
 }) {
-  const incompleteActions = actions.filter(a => !a.completed)
+  const incompleteActions = actions.filter((a) => !a.completed)
 
   return (
     <div className="space-y-4">
@@ -16,24 +22,24 @@ export default function DashboardView({
         strategies={strategies}
         milestones={milestones}
         actions={actions}
+        links={links}
       />
       <TodayActionPanel
         actions={incompleteActions}
-        dreams={[dream]}
+        allActions={actions}
+        dreams={allDreams}
         strategies={strategies}
         milestones={milestones}
+        allLinks={allLinks}
         onToggle={onToggleAction}
-        onDelete={onDeleteAction}
       />
-      <MoneyRealityCard
-        dream={dream}
-        strategies={strategies}
-      />
+      <MoneyRealityCard dream={dream} links={links} />
       <BlockDetector
         dream={dream}
         strategies={strategies}
         milestones={milestones}
         actions={actions}
+        links={links}
       />
     </div>
   )

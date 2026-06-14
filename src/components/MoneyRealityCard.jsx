@@ -1,53 +1,60 @@
 import { getMonthsLeft, getStatus } from '../utils'
 
 const STATUS_STYLE = {
-  '達成':     { badge: 'bg-purple-100 text-purple-700', icon: '🎉' },
-  '期限未設定': { badge: 'bg-slate-100 text-slate-600',  icon: '📅' },
-  '期限切れ':  { badge: 'bg-red-100 text-red-600',       icon: '⚠️' },
-  '順調':     { badge: 'bg-emerald-100 text-emerald-700', icon: '✅' },
-  '要注意':   { badge: 'bg-yellow-100 text-yellow-700',  icon: '⚡' },
-  '危険':     { badge: 'bg-red-100 text-red-600',        icon: '🚨' },
+  達成: { badge: 'bg-purple-100 text-purple-700', icon: '🎉' },
+  期限未設定: { badge: 'bg-slate-100 text-slate-600', icon: '📅' },
+  期限切れ: { badge: 'bg-red-100 text-red-600', icon: '⚠️' },
+  順調: { badge: 'bg-emerald-100 text-emerald-700', icon: '✅' },
+  要注意: { badge: 'bg-yellow-100 text-yellow-700', icon: '⚡' },
+  危険: { badge: 'bg-red-100 text-red-600', icon: '🚨' },
 }
 
-function fmt(n) { return Number(n || 0).toLocaleString() }
+function fmt(n) {
+  return Number(n || 0).toLocaleString()
+}
 
 function Row({ label, value, bold, red }) {
   return (
     <div className="flex justify-between items-center py-1">
       <span className="text-xs text-slate-500">{label}</span>
-      <span className={`${bold ? 'text-sm font-semibold' : 'text-sm'} ${red ? 'text-red-600' : 'text-slate-700'}`}>
+      <span
+        className={`${bold ? 'text-sm font-semibold' : 'text-sm'} ${red ? 'text-red-600' : 'text-slate-700'}`}
+      >
         {value}
       </span>
     </div>
   )
 }
 
-export default function MoneyRealityCard({ dream, strategies }) {
+export default function MoneyRealityCard({ dream, links }) {
   const { targetAmount, currentAmount, currentMonthlyProgress = 0, deadline } = dream
 
   const remainingAmount = Math.max(0, targetAmount - currentAmount)
   const monthsLeft = getMonthsLeft(deadline)
-  const requiredMonthlyAmount = monthsLeft && monthsLeft > 0
-    ? Math.ceil(remainingAmount / monthsLeft)
-    : remainingAmount
+  const requiredMonthlyAmount =
+    monthsLeft && monthsLeft > 0 ? Math.ceil(remainingAmount / monthsLeft) : remainingAmount
   const monthlyShortfall = Math.max(0, requiredMonthlyAmount - currentMonthlyProgress)
 
-  const totalExpectedMonthlyImpact = (strategies || [])
-    .filter(s => s.impactUnit === 'monthly_yen' && s.status !== 'abandoned')
-    .reduce((sum, s) => sum + Number(s.expectedImpact || 0), 0)
+  const totalExpectedMonthlyImpact = (links || [])
+    .filter((l) => l.impactUnit === 'monthly_yen')
+    .reduce((sum, l) => sum + Number(l.expectedMonthlyImpact || 0), 0)
   const requiredMonthlyGap = monthlyShortfall
-  const strategyCoveragePercent = requiredMonthlyGap > 0
-    ? Math.min(999, Math.round((totalExpectedMonthlyImpact / requiredMonthlyGap) * 100))
-    : null
+  const strategyCoveragePercent =
+    requiredMonthlyGap > 0
+      ? Math.min(999, Math.round((totalExpectedMonthlyImpact / requiredMonthlyGap) * 100))
+      : null
   const remainingMonthlyGap = Math.max(0, requiredMonthlyGap - totalExpectedMonthlyImpact)
 
   const status = getStatus(dream)
   const s = STATUS_STYLE[status]
 
-  const coverageColor = !strategyCoveragePercent ? 'text-slate-500'
-    : strategyCoveragePercent >= 100 ? 'text-emerald-600'
-    : strategyCoveragePercent >= 50  ? 'text-yellow-600'
-    : 'text-red-600'
+  const coverageColor = !strategyCoveragePercent
+    ? 'text-slate-500'
+    : strategyCoveragePercent >= 100
+      ? 'text-emerald-600'
+      : strategyCoveragePercent >= 50
+        ? 'text-yellow-600'
+        : 'text-red-600'
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -71,7 +78,7 @@ export default function MoneyRealityCard({ dream, strategies }) {
         <div className="divide-y divide-slate-50 mb-4">
           <Row label="目標額" value={`¥${fmt(targetAmount)}`} />
           <Row label="現在額" value={`¥${fmt(currentAmount)}`} />
-          <Row label="残額"   value={`¥${fmt(remainingAmount)}`} bold />
+          <Row label="残額" value={`¥${fmt(remainingAmount)}`} bold />
           {deadline && <Row label="期限" value={new Date(deadline).toLocaleDateString('ja-JP')} />}
           {monthsLeft !== null && <Row label="残り" value={`${monthsLeft}ヶ月`} />}
         </div>
@@ -81,11 +88,13 @@ export default function MoneyRealityCard({ dream, strategies }) {
         <div className="bg-slate-50 rounded-xl p-3 mb-4">
           <p className="text-xs font-semibold text-slate-600 mb-2">月次分析</p>
           <div className="divide-y divide-slate-100">
-            <Row label="必要月額"   value={`¥${fmt(requiredMonthlyAmount)}`} />
+            <Row label="必要月額" value={`¥${fmt(requiredMonthlyAmount)}`} />
             <Row label="現在ペース" value={`¥${fmt(currentMonthlyProgress)}`} />
             <div className="flex justify-between items-center pt-2">
               <span className="text-xs text-slate-500">月間不足</span>
-              <span className={`text-2xl font-bold ${monthlyShortfall > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              <span
+                className={`text-2xl font-bold ${monthlyShortfall > 0 ? 'text-red-600' : 'text-emerald-600'}`}
+              >
                 {monthlyShortfall > 0 ? `¥${fmt(monthlyShortfall)}` : '不足なし'}
               </span>
             </div>
@@ -93,7 +102,7 @@ export default function MoneyRealityCard({ dream, strategies }) {
         </div>
       )}
 
-      {requiredMonthlyGap > 0 && (
+      {requiredMonthlyGap > 0 ? (
         <div className="border border-slate-100 rounded-xl p-3">
           <p className="text-xs font-semibold text-slate-600 mb-2">戦略効果</p>
           <div className="divide-y divide-slate-50">
@@ -101,17 +110,25 @@ export default function MoneyRealityCard({ dream, strategies }) {
             <div className="flex justify-between items-center pt-2">
               <span className="text-xs text-slate-500">差分カバー率</span>
               <span className={`text-2xl font-bold ${coverageColor}`}>
-                {strategyCoveragePercent ?? '--'}%
+                {strategyCoveragePercent}%
               </span>
             </div>
             {remainingMonthlyGap > 0 && (
               <div className="flex justify-between items-center pt-1">
                 <span className="text-xs text-slate-500">あと必要</span>
-                <span className="text-red-600 font-bold text-sm">¥{fmt(remainingMonthlyGap)}/月</span>
+                <span className="text-red-600 font-bold text-sm">
+                  ¥{fmt(remainingMonthlyGap)}/月
+                </span>
               </div>
             )}
           </div>
         </div>
+      ) : (
+        targetAmount > 0 && (
+          <p className="text-xs text-slate-400 text-center py-2">
+            目標額・期限・現在ペースを入力すると戦略カバー率が表示されます
+          </p>
+        )
       )}
     </div>
   )

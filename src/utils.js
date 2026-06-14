@@ -9,9 +9,7 @@ export function getMonthsLeft(deadline) {
 
 export function getPercent(dream) {
   const { targetAmount, currentAmount } = dream
-  return targetAmount > 0
-    ? Math.min(100, Math.round((currentAmount / targetAmount) * 100))
-    : 0
+  return targetAmount > 0 ? Math.min(100, Math.round((currentAmount / targetAmount) * 100)) : 0
 }
 
 export function getStatus(dream) {

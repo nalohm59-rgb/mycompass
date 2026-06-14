@@ -2,9 +2,24 @@ import { getProgressPercent, isOverdue, getDreamHealthStatus } from '../utils/pr
 import { getMonthsLeft } from '../utils'
 
 const HEALTH_CONFIG = {
-  good:    { label: '順調',   bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700' },
-  warning: { label: '要注意', bg: 'bg-yellow-50',  border: 'border-yellow-200',  badge: 'bg-yellow-100 text-yellow-700' },
-  danger:  { label: '要対策', bg: 'bg-red-50',     border: 'border-red-200',     badge: 'bg-red-100 text-red-600' },
+  good: {
+    label: '順調',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    badge: 'bg-emerald-100 text-emerald-700',
+  },
+  warning: {
+    label: '要注意',
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-200',
+    badge: 'bg-yellow-100 text-yellow-700',
+  },
+  danger: {
+    label: '要対策',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    badge: 'bg-red-100 text-red-600',
+  },
 }
 
 function ProgressRow({ label, value, sub, color }) {
@@ -15,7 +30,10 @@ function ProgressRow({ label, value, sub, color }) {
         <span className="text-xs font-medium text-slate-600">{sub}</span>
       </div>
       <div className="w-full h-2 bg-white/60 rounded-full overflow-hidden">
-        <div className={`h-2 rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }} />
+        <div
+          className={`h-2 rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${value}%` }}
+        />
       </div>
     </div>
   )
@@ -30,40 +48,46 @@ function KpiBox({ label, value, valueClass }) {
   )
 }
 
-export default function DreamSummaryCard({ dream, strategies, milestones, actions }) {
-  const dreamStrategies = strategies.filter(s => s.dreamId === dream.id)
-  const dreamMilestones = milestones.filter(m => m.dreamId === dream.id)
-  const dreamActions = actions.filter(a => a.dreamId === dream.id)
-  const pendingActions = dreamActions.filter(a => !a.completed)
+export default function DreamSummaryCard({ dream, strategies, milestones, actions, links }) {
+  const pendingActions = actions.filter((a) => !a.completed)
 
   const outcomeProgress = getProgressPercent(dream.currentAmount, dream.targetAmount)
-  const milestoneCompleted = dreamMilestones.filter(m => m.completed).length
-  const planProgress = getProgressPercent(milestoneCompleted, dreamMilestones.length)
-  const actionCompleted = dreamActions.filter(a => a.completed).length
-  const actionProgress = getProgressPercent(actionCompleted, dreamActions.length)
+  const milestoneCompleted = milestones.filter((m) => m.completed).length
+  const planProgress = getProgressPercent(milestoneCompleted, milestones.length)
+  const actionCompleted = actions.filter((a) => a.completed).length
+  const actionProgress = getProgressPercent(actionCompleted, actions.length)
 
-  const overdueActionsCount = pendingActions.filter(a => isOverdue(a.dueDate, a.completed)).length
-  const overdueMilestonesCount = dreamMilestones.filter(m => isOverdue(m.dueDate, m.completed)).length
+  const overdueActionsCount = pendingActions.filter((a) => isOverdue(a.dueDate, a.completed)).length
+  const overdueMilestonesCount = milestones.filter((m) =>
+    isOverdue(m.dueDate, m.completed),
+  ).length
   const totalOverdueCount = overdueActionsCount + overdueMilestonesCount
 
   const todayEnd = new Date()
   todayEnd.setHours(23, 59, 59, 999)
-  const todayActionsCount = pendingActions.filter(a => a.dueDate && new Date(a.dueDate) <= todayEnd).length
+  const todayActionsCount = pendingActions.filter(
+    (a) => a.dueDate && new Date(a.dueDate) <= todayEnd,
+  ).length
 
   const remainingAmount = Math.max(0, dream.targetAmount - dream.currentAmount)
   const monthsLeft = getMonthsLeft(dream.deadline)
-  const requiredMonthlyAmount = monthsLeft && monthsLeft > 0
-    ? Math.ceil(remainingAmount / monthsLeft)
-    : remainingAmount
+  const requiredMonthlyAmount =
+    monthsLeft && monthsLeft > 0 ? Math.ceil(remainingAmount / monthsLeft) : remainingAmount
   const monthlyShortfall = Math.max(0, requiredMonthlyAmount - (dream.currentMonthlyProgress || 0))
 
   let strategyCoveragePercent = null
   if (dream.targetAmount > 0 && dream.deadline) {
-    const requiredMonthlyGap = Math.max(0, requiredMonthlyAmount - (dream.currentMonthlyProgress || 0))
+    const requiredMonthlyGap = Math.max(
+      0,
+      requiredMonthlyAmount - (dream.currentMonthlyProgress || 0),
+    )
     if (requiredMonthlyGap > 0) {
-      const totalImpact = dreamStrategies
-        .filter(s => s.impactUnit === 'monthly_yen' && s.status !== 'abandoned')
-        .reduce((sum, s) => sum + Number(s.expectedImpact || 0), 0)
+      const activeStrategyIds = new Set(
+        strategies.filter((s) => s.status !== 'abandoned').map((s) => s.id),
+      )
+      const totalImpact = (links || [])
+        .filter((l) => l.impactUnit === 'monthly_yen' && activeStrategyIds.has(l.strategyId))
+        .reduce((sum, l) => sum + Number(l.expectedMonthlyImpact || 0), 0)
       strategyCoveragePercent = Math.min(999, Math.round((totalImpact / requiredMonthlyGap) * 100))
     } else {
       strategyCoveragePercent = 100
@@ -83,7 +107,6 @@ export default function DreamSummaryCard({ dream, strategies, milestones, action
 
   return (
     <div className={`rounded-2xl border shadow-sm p-5 ${hc.bg} ${hc.border}`}>
-      {/* タイトル + 判定 */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <h2 className="text-base font-bold text-slate-800 leading-snug flex-1 min-w-0">
           {dream.title}
@@ -93,7 +116,6 @@ export default function DreamSummaryCard({ dream, strategies, milestones, action
         </span>
       </div>
 
-      {/* 3種の進捗バー */}
       <div className="space-y-2 mb-4">
         {dream.targetAmount > 0 && (
           <ProgressRow
@@ -106,18 +128,17 @@ export default function DreamSummaryCard({ dream, strategies, milestones, action
         <ProgressRow
           label="計画進捗"
           value={planProgress}
-          sub={dreamMilestones.length > 0 ? `${milestoneCompleted}/${dreamMilestones.length}` : '---'}
+          sub={milestones.length > 0 ? `${milestoneCompleted}/${milestones.length}` : '---'}
           color="bg-emerald-500"
         />
         <ProgressRow
           label="行動進捗"
           value={actionProgress}
-          sub={dreamActions.length > 0 ? `${actionCompleted}/${dreamActions.length}` : '---'}
+          sub={actions.length > 0 ? `${actionCompleted}/${actions.length}` : '---'}
           color="bg-indigo-500"
         />
       </div>
 
-      {/* KPIグリッド */}
       <div className="grid grid-cols-2 gap-2">
         {monthlyShortfall > 0 ? (
           <KpiBox
@@ -134,9 +155,11 @@ export default function DreamSummaryCard({ dream, strategies, milestones, action
             label="戦略カバー率"
             value={`${strategyCoveragePercent}%`}
             valueClass={
-              strategyCoveragePercent >= 100 ? 'text-emerald-600'
-              : strategyCoveragePercent >= 50  ? 'text-yellow-600'
-              : 'text-red-600'
+              strategyCoveragePercent >= 100
+                ? 'text-emerald-600'
+                : strategyCoveragePercent >= 50
+                  ? 'text-yellow-600'
+                  : 'text-red-600'
             }
           />
         )}

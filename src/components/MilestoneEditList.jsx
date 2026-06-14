@@ -1,8 +1,13 @@
 import MilestoneEditCard from './MilestoneEditCard'
 
 export default function MilestoneEditList({
-  strategies, milestones,
-  onAdd, onUpdate, onDelete, onToggle,
+  strategies,
+  milestones,
+  onAdd,
+  onUpdate,
+  onDelete,
+  onToggle,
+  dream,
 }) {
   if (strategies.length === 0) {
     return (
@@ -11,9 +16,7 @@ export default function MilestoneEditList({
           <span className="text-lg">📍</span>
           <h3 className="text-sm font-semibold text-slate-700">マイルストーン</h3>
         </div>
-        <p className="text-xs text-slate-400 text-center py-3">
-          先に戦略を追加してください
-        </p>
+        <p className="text-xs text-slate-400 text-center py-3">先に戦略を追加してください</p>
       </div>
     )
   }
@@ -25,8 +28,8 @@ export default function MilestoneEditList({
         <h3 className="text-sm font-semibold text-slate-700">マイルストーン</h3>
       </div>
 
-      {strategies.map(strategy => {
-        const stratMilestones = milestones.filter(m => m.strategyId === strategy.id)
+      {strategies.map((strategy) => {
+        const stratMilestones = milestones.filter((m) => m.strategyId === strategy.id)
         return (
           <div key={strategy.id} className="space-y-2">
             <div className="flex items-center justify-between">
@@ -42,18 +45,17 @@ export default function MilestoneEditList({
             </div>
 
             {stratMilestones.length === 0 && (
-              <p className="text-xs text-slate-400 pl-4 py-1">
-                マイルストーンがありません
-              </p>
+              <p className="text-xs text-slate-400 pl-4 py-1">マイルストーンがありません</p>
             )}
 
-            {stratMilestones.map(milestone => (
+            {stratMilestones.map((milestone) => (
               <MilestoneEditCard
                 key={milestone.id}
                 milestone={milestone}
-                onChange={patch => onUpdate(milestone.id, patch)}
+                onChange={(patch) => onUpdate(milestone.id, patch)}
                 onDelete={() => onDelete(milestone.id)}
                 onToggle={() => onToggle(milestone.id)}
+                promptContext={{ dream, strategy }}
               />
             ))}
           </div>

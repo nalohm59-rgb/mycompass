@@ -2,54 +2,74 @@ import { getProgressPercent, isOverdue, getDreamHealthStatus } from '../utils/pr
 import { getMonthsLeft } from '../utils'
 
 const CATEGORY_ICONS = {
-  home: '🏠', birth: '👶', money: '💰', career: '💼', health: '💪', life: '✨',
+  home: '🏠',
+  birth: '👶',
+  money: '💰',
+  career: '💼',
+  health: '💪',
+  life: '✨',
 }
 
 const HEALTH_CONFIG = {
-  good:    { label: '順調',   badge: 'bg-emerald-100 text-emerald-700' },
+  good: { label: '順調', badge: 'bg-emerald-100 text-emerald-700' },
   warning: { label: '要注意', badge: 'bg-yellow-100 text-yellow-700' },
-  danger:  { label: '要対策', badge: 'bg-red-100 text-red-600' },
+  danger: { label: '要対策', badge: 'bg-red-100 text-red-600' },
 }
 
 function MiniBar({ value, color }) {
   return (
     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-      <div className={`h-1.5 rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }} />
+      <div
+        className={`h-1.5 rounded-full transition-all duration-500 ${color}`}
+        style={{ width: `${value}%` }}
+      />
     </div>
   )
 }
 
-function computeDreamStats(dream, strategies, milestones, actions) {
-  const dreamStrategies = strategies.filter(s => s.dreamId === dream.id)
-  const dreamMilestones = milestones.filter(m => m.dreamId === dream.id)
-  const dreamActions = actions.filter(a => a.dreamId === dream.id)
-  const pendingActions = dreamActions.filter(a => !a.completed)
+function computeDreamStats(dream, dreamStrategyLinks, milestones, actions) {
+  const links = dreamStrategyLinks.filter((l) => l.dreamId === dream.id)
+  const linkedStrategyIds = new Set(links.map((l) => l.strategyId))
+
+  const dreamMilestones = milestones.filter(
+    (m) => linkedStrategyIds.has(m.strategyId) || m.dreamId === dream.id,
+  )
+  const dreamActions = actions.filter(
+    (a) => linkedStrategyIds.has(a.strategyId) || a.dreamId === dream.id,
+  )
+  const pendingActions = dreamActions.filter((a) => !a.completed)
 
   const outcomeProgress = getProgressPercent(dream.currentAmount, dream.targetAmount)
-  const milestoneCompleted = dreamMilestones.filter(m => m.completed).length
+  const milestoneCompleted = dreamMilestones.filter((m) => m.completed).length
   const planProgress = getProgressPercent(milestoneCompleted, dreamMilestones.length)
-  const actionCompleted = dreamActions.filter(a => a.completed).length
+  const actionCompleted = dreamActions.filter((a) => a.completed).length
   const actionProgress = getProgressPercent(actionCompleted, dreamActions.length)
 
-  const overdueActionsCount = pendingActions.filter(a => isOverdue(a.dueDate, a.completed)).length
-  const overdueMilestonesCount = dreamMilestones.filter(m => isOverdue(m.dueDate, m.completed)).length
+  const overdueActionsCount = pendingActions.filter((a) => isOverdue(a.dueDate, a.completed)).length
+  const overdueMilestonesCount = dreamMilestones.filter((m) =>
+    isOverdue(m.dueDate, m.completed),
+  ).length
 
   const todayEnd = new Date()
   todayEnd.setHours(23, 59, 59, 999)
-  const todayActionsCount = pendingActions.filter(a => a.dueDate && new Date(a.dueDate) <= todayEnd).length
+  const todayActionsCount = pendingActions.filter(
+    (a) => a.dueDate && new Date(a.dueDate) <= todayEnd,
+  ).length
 
   let strategyCoveragePercent = null
   if (dream.targetAmount > 0 && dream.deadline) {
     const remainingAmount = Math.max(0, dream.targetAmount - dream.currentAmount)
     const monthsLeft = getMonthsLeft(dream.deadline)
-    const requiredMonthlyAmount = monthsLeft && monthsLeft > 0
-      ? Math.ceil(remainingAmount / monthsLeft)
-      : remainingAmount
-    const requiredMonthlyGap = Math.max(0, requiredMonthlyAmount - (dream.currentMonthlyProgress || 0))
+    const requiredMonthlyAmount =
+      monthsLeft && monthsLeft > 0 ? Math.ceil(remainingAmount / monthsLeft) : remainingAmount
+    const requiredMonthlyGap = Math.max(
+      0,
+      requiredMonthlyAmount - (dream.currentMonthlyProgress || 0),
+    )
     if (requiredMonthlyGap > 0) {
-      const totalImpact = dreamStrategies
-        .filter(s => s.impactUnit === 'monthly_yen' && s.status !== 'abandoned')
-        .reduce((sum, s) => sum + Number(s.expectedImpact || 0), 0)
+      const totalImpact = links
+        .filter((l) => l.impactUnit === 'monthly_yen')
+        .reduce((sum, l) => sum + Number(l.expectedMonthlyImpact || 0), 0)
       strategyCoveragePercent = Math.min(999, Math.round((totalImpact / requiredMonthlyGap) * 100))
     } else {
       strategyCoveragePercent = 100
@@ -66,9 +86,14 @@ function computeDreamStats(dream, strategies, milestones, actions) {
   })
 
   return {
-    outcomeProgress, planProgress, actionProgress,
-    overdueActionsCount, overdueMilestonesCount, todayActionsCount,
-    strategyCoveragePercent, healthStatus,
+    outcomeProgress,
+    planProgress,
+    actionProgress,
+    overdueActionsCount,
+    overdueMilestonesCount,
+    todayActionsCount,
+    strategyCoveragePercent,
+    healthStatus,
     milestoneTotal: dreamMilestones.length,
     milestoneCompleted,
     actionTotal: dreamActions.length,
@@ -77,8 +102,14 @@ function computeDreamStats(dream, strategies, milestones, actions) {
 }
 
 export default function DreamListPanel({
-  dreams, strategies, milestones, actions,
-  selectedDreamId, onSelect, onAdd, onDelete,
+  dreams,
+  dreamStrategyLinks,
+  milestones,
+  actions,
+  selectedDreamId,
+  onSelect,
+  onAdd,
+  onDelete,
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -93,8 +124,8 @@ export default function DreamListPanel({
       </div>
 
       <ul className="divide-y divide-slate-100">
-        {dreams.map(dream => {
-          const stats = computeDreamStats(dream, strategies, milestones, actions)
+        {dreams.map((dream) => {
+          const stats = computeDreamStats(dream, dreamStrategyLinks, milestones, actions)
           const isSelected = dream.id === selectedDreamId
           const hc = HEALTH_CONFIG[stats.healthStatus]
 
@@ -109,7 +140,9 @@ export default function DreamListPanel({
                     {CATEGORY_ICONS[dream.category] ?? '✨'}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>
+                    <p
+                      className={`text-sm font-medium truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}
+                    >
                       {dream.title}
                     </p>
                     {dream.deadline && (
@@ -118,7 +151,9 @@ export default function DreamListPanel({
                       </p>
                     )}
                   </div>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${hc.badge}`}>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${hc.badge}`}
+                  >
                     {hc.label}
                   </span>
                 </div>
@@ -137,7 +172,9 @@ export default function DreamListPanel({
                     <div>
                       <div className="flex justify-between text-slate-400 mb-0.5">
                         <span>計画進捗</span>
-                        <span>{stats.milestoneCompleted}/{stats.milestoneTotal}</span>
+                        <span>
+                          {stats.milestoneCompleted}/{stats.milestoneTotal}
+                        </span>
                       </div>
                       <MiniBar value={stats.planProgress} color="bg-emerald-400" />
                     </div>
@@ -146,7 +183,9 @@ export default function DreamListPanel({
                     <div>
                       <div className="flex justify-between text-slate-400 mb-0.5">
                         <span>行動進捗</span>
-                        <span>{stats.actionCompleted}/{stats.actionTotal}</span>
+                        <span>
+                          {stats.actionCompleted}/{stats.actionTotal}
+                        </span>
                       </div>
                       <MiniBar value={stats.actionProgress} color="bg-indigo-400" />
                     </div>
@@ -155,11 +194,15 @@ export default function DreamListPanel({
 
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-xs">
                   {stats.strategyCoveragePercent !== null && (
-                    <span className={
-                      stats.strategyCoveragePercent >= 100 ? 'text-emerald-600'
-                      : stats.strategyCoveragePercent >= 50  ? 'text-yellow-600'
-                      : 'text-red-500'
-                    }>
+                    <span
+                      className={
+                        stats.strategyCoveragePercent >= 100
+                          ? 'text-emerald-600'
+                          : stats.strategyCoveragePercent >= 50
+                            ? 'text-yellow-600'
+                            : 'text-red-500'
+                      }
+                    >
                       戦略カバー: {stats.strategyCoveragePercent}%
                     </span>
                   )}
@@ -174,7 +217,10 @@ export default function DreamListPanel({
 
               {dreams.length > 1 && (
                 <button
-                  onClick={e => { e.stopPropagation(); onDelete(dream.id) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(dream.id)
+                  }}
                   className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-base leading-none"
                   aria-label="削除"
                 >
