@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getMilestoneStatus, getProgressPercent } from '../utils/progress'
 import { buildMilestoneEvidencePrompt } from '../utils/aiPrompt'
+import { calculateMoneyProjection } from '../utils/moneyProjection'
 import ActionList from './ActionList'
 
 const STATUS_CONFIG = {
@@ -51,7 +52,15 @@ export default function MilestoneStep({
   const cfg = STATUS_CONFIG[status]
 
   async function handleCopyPrompt() {
-    const prompt = buildMilestoneEvidencePrompt({ dream, strategy, milestone })
+    const link = (allLinks || []).find(
+      (l) => l.dreamId === dream?.id && l.strategyId === strategy?.id,
+    )
+    const dreamLinks = dream ? (allLinks || []).filter((l) => l.dreamId === dream.id) : []
+    const moneyProjection =
+      dream && dream.targetAmount > 0 && dream.deadline && dreamLinks.length > 0
+        ? calculateMoneyProjection({ dream, dreamStrategyLinks: dreamLinks })
+        : null
+    const prompt = buildMilestoneEvidencePrompt({ dream, strategy, milestone, link, moneyProjection })
     await navigator.clipboard.writeText(prompt)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)

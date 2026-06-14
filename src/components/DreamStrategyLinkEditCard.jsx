@@ -33,6 +33,7 @@ export default function DreamStrategyLinkEditCard({ link, strategy, onChange, on
       expectedMonthlyImpact: parseInt(draft.expectedMonthlyImpact) || 0,
       contributionTargetAmount: parseInt(draft.contributionTargetAmount) || 0,
       contributionCurrentAmount: parseInt(draft.contributionCurrentAmount) || 0,
+      impactRampUpMonths: parseInt(draft.impactRampUpMonths) || 0,
       relevance: Number(draft.relevance) || 3,
       priority: Number(draft.priority) || 3,
     })
@@ -117,14 +118,44 @@ export default function DreamStrategyLinkEditCard({ link, strategy, onChange, on
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">期限</label>
+              <input
+                type="date"
+                value={draft.deadline ?? ''}
+                onChange={set('deadline')}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">期待開始日</label>
+              <input
+                type="date"
+                value={draft.expectedStartDate ?? ''}
+                onChange={set('expectedStartDate')}
+                className={inputClass}
+              />
+              <p className="text-xs text-slate-400 mt-0.5">効果が出始める日</p>
+            </div>
+          </div>
+
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">期限</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              立ち上がり期間（ヶ月）
+            </label>
             <input
-              type="date"
-              value={draft.deadline ?? ''}
-              onChange={set('deadline')}
+              type="number"
+              min="0"
+              value={draft.impactRampUpMonths ?? 0}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, impactRampUpMonths: e.target.value }))
+              }
               className={inputClass}
             />
+            <p className="text-xs text-slate-400 mt-0.5">
+              0=即全額、1以上=指定月数かけて全額に増加
+            </p>
           </div>
 
           <div>

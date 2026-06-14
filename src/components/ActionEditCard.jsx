@@ -22,7 +22,11 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
   }
 
   function save() {
-    onChange({ ...draft, estimatedMinutes: parseInt(draft.estimatedMinutes) || 30 })
+    onChange({
+      ...draft,
+      estimatedMinutes: parseInt(draft.estimatedMinutes) || 30,
+      delayImpactDays: parseInt(draft.delayImpactDays) || 30,
+    })
     setExpanded(false)
   }
 
@@ -174,6 +178,42 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
               />
             </div>
           </div>
+
+          <details className="group">
+            <summary className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer select-none">
+              詳細設定（遅延インパクト）
+            </summary>
+            <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  遅延影響日数
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={draft.delayImpactDays ?? 30}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, delayImpactDays: e.target.value }))
+                  }
+                  className={inputClass}
+                />
+                <p className="text-xs text-slate-400 mt-0.5">
+                  このActionが遅れた場合、後続全体が何日遅れる想定か
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.blocksStrategyStart ?? false}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, blocksStrategyStart: e.target.checked }))
+                  }
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-xs text-slate-600">このActionがStrategy開始をブロックする</span>
+              </label>
+            </div>
+          </details>
 
           <button
             onClick={handleCopyPrompt}

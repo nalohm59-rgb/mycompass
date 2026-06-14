@@ -23,13 +23,27 @@ export function migrateActions(actions) {
     consequenceIfDelayed: '',
     estimatedMinutes: 30,
     dueDate: '',
+    delayImpactDays: 30,
+    blocksStrategyStart: false,
     ...a,
   }))
 }
 
 export function migrateStrategiesAndLinks(oldStrategies, oldLinks = []) {
   const migratedStrategies = []
-  const generatedLinks = [...oldLinks]
+  // 既存Linkに新フィールドのデフォルト値を補完
+  const generatedLinks = oldLinks.map((l) => ({
+    expectedStartDate: '',
+    impactRampUpMonths: 0,
+    linkedTargetAmount: 0,
+    ...l,
+  }))
+
+  const LINK_DEFAULTS = {
+    expectedStartDate: '',
+    impactRampUpMonths: 0,
+    linkedTargetAmount: 0,
+  }
 
   oldStrategies.forEach((strategy) => {
     const { dreamId, reason, expectedImpact, impactUnit, deadline, ...rest } = strategy
@@ -51,6 +65,7 @@ export function migrateStrategiesAndLinks(oldStrategies, oldLinks = []) {
       )
       if (!exists) {
         generatedLinks.push({
+          ...LINK_DEFAULTS,
           id: crypto.randomUUID(),
           dreamId,
           strategyId: strategy.id,

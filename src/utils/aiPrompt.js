@@ -1,3 +1,5 @@
+import { formatMoneyProjectionForPrompt } from './moneyProjection'
+
 function formatJpDate(dateStr) {
   if (!dateStr) return '未設定'
   return new Date(dateStr).toLocaleDateString('ja-JP', {
@@ -21,13 +23,21 @@ function getRemainingText(dateStr) {
   return `${diffDays}日`
 }
 
-export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
+export function buildMilestoneEvidencePrompt({ dream, strategy, milestone, link, moneyProjection }) {
   const today = new Date()
   const currentDateStr = today.toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+
+  // link があれば link 側のデータ、なければ strategy 側にフォールバック
+  const strategyReason = link?.reasonForDream ?? strategy?.reason ?? '（未入力）'
+  const strategyDeadline = link?.deadline ?? strategy?.deadline
+
+  const moneySection = moneyProjection
+    ? formatMoneyProjectionForPrompt(moneyProjection, dream?.title)
+    : null
 
   return [
     'あなたは、ユーザーのDream達成を支援する戦略コーチです。',
@@ -39,6 +49,9 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
     'と感じ、行動したくなることです。',
     '',
     '一般論ではなく、期限・数字・因果関係・生活への影響を具体化してください。',
+    ...(moneySection
+      ? ['金額目標がある場合は、具体的な金額の増減・達成月の変化・遅延損失額を必ず含めてください。']
+      : []),
     '',
     '# 入力情報',
     '',
@@ -56,11 +69,11 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
     '',
     `Strategy:\n${strategy?.title ?? '（未設定）'}`,
     '',
-    `Strategyの理由:\n${strategy?.reason ?? '（未入力）'}`,
+    `Strategyのこの夢への貢献理由:\n${strategyReason}`,
     '',
-    `Strategyの期限:\n${formatJpDate(strategy?.deadline)}`,
+    `Strategyの期限:\n${formatJpDate(strategyDeadline)}`,
     '',
-    `Strategy期限までの残り期間:\n${getRemainingText(strategy?.deadline)}`,
+    `Strategy期限までの残り期間:\n${getRemainingText(strategyDeadline)}`,
     '',
     `Milestone:\n${milestone?.title ?? '（未設定）'}`,
     '',
@@ -69,6 +82,7 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
     `Milestoneの期限:\n${formatJpDate(milestone?.dueDate)}`,
     '',
     `Milestone期限までの残り期間:\n${getRemainingText(milestone?.dueDate)}`,
+    ...(moneySection ? ['', moneySection] : []),
     '',
     '# 出力項目',
     '',
@@ -78,6 +92,9 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
     '- このMilestoneが次の行動にどう接続するのか',
     '- 期限までに終わることで、どんな選択肢・余裕・安心が生まれるのか',
     '- 数字や期間が使える場合は必ず使う（例：残りX日、月YY万円が必要、など）',
+    ...(moneySection
+      ? ['- 金額目標があるDreamでは、期日時点の見込み金額・余裕額・達成月を具体的に書く']
+      : []),
     '- 抽象的な表現だけで終わらせない',
     '',
     '## 遅れると何が起きる？',
@@ -85,8 +102,10 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
     '- まず何が止まるのか',
     '- 次にどの行動・検証・収益化・準備が遅れるのか',
     '- その結果、Dream達成に必要な条件がどう厳しくなるのか（必要月額・期間・競争条件など）',
+    ...(moneySection
+      ? ['- 金額目標があるDreamでは、遅延による損失金額と達成月の後ろ倒しを明記する']
+      : []),
     '- 最終的に、ユーザーが何を妥協する可能性があるのか（立地・条件・期限など）',
-    '- 家計、時間、心理、生活、選択肢への具体的な困りごとを書く',
     '',
     '## 完了すると何が進む？',
     '以下を必ず含めてください。',
@@ -113,7 +132,7 @@ export function buildMilestoneEvidencePrompt({ dream, strategy, milestone }) {
   ].join('\n')
 }
 
-export function buildActionEvidencePrompt({ dream, strategy, milestone, action }) {
+export function buildActionEvidencePrompt({ dream, strategy, milestone, action, link, moneyProjection }) {
   const today = new Date()
   const currentDateStr = today.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -121,10 +140,28 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action }
     day: 'numeric',
   })
 
+  const strategyReason = link?.reasonForDream ?? strategy?.reason ?? '（未入力）'
+  const strategyDeadline = link?.deadline ?? strategy?.deadline
+
+  const moneySection = moneyProjection
+    ? formatMoneyProjectionForPrompt(moneyProjection, dream?.title)
+    : null
+
+  const delayMonths = action?.delayImpactDays
+    ? Math.max(1, Math.ceil(action.delayImpactDays / 30))
+    : 1
+
   return [
     'あなたは、ユーザーのDream達成を支援する戦略コーチです。',
     '以下の情報をもとに、Actionの「なぜ必要か」「なぜこの期限までに必要か」「遅れると何が起きるか」を作成してください。',
     '',
+    ...(moneySection
+      ? [
+          '金額目標があるDreamです。必ず具体的な金額・期限を使ってください。',
+          `このActionが${delayMonths}ヶ月遅れた場合の金額インパクトを「遅れると何が起きるか」に含めてください。`,
+          '',
+        ]
+      : []),
     '# 入力情報',
     '',
     `現在日:\n${currentDateStr}`,
@@ -139,9 +176,9 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action }
     '',
     `Strategy:\n${strategy?.title ?? '（未設定）'}`,
     '',
-    `Strategyの理由:\n${strategy?.reason ?? '（未入力）'}`,
+    `Strategyのこの夢への貢献理由:\n${strategyReason}`,
     '',
-    `Strategyの期限:\n${formatJpDate(strategy?.deadline)}（残り${getRemainingText(strategy?.deadline)}）`,
+    `Strategyの期限:\n${formatJpDate(strategyDeadline)}（残り${getRemainingText(strategyDeadline)}）`,
     '',
     `Milestone:\n${milestone?.title ?? '（未設定）'}`,
     '',
@@ -153,9 +190,19 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action }
     '',
     `Actionの期限:\n${formatJpDate(action?.dueDate)}（残り${getRemainingText(action?.dueDate)}）`,
     '',
+    ...(action?.blocksStrategyStart
+      ? ['このActionはStrategyの開始をブロックします（完了しないと戦略が動き出しません）。\n']
+      : []),
+    ...(moneySection ? [moneySection, ''] : []),
     '# 文体・要件',
     '- 一般論ではなく、入力されたDream/Strategy/Milestone/Actionに即して書く',
     '- 数字が使える場合は必ず使う',
+    ...(moneySection
+      ? [
+          '- 金額目標があるDreamでは「遅れると何が起きるか」に損失金額・達成月の後ろ倒しを必ず入れる',
+          '- 「このActionの遅れは単なる作業遅れではなく、未来の資金余裕をXX円削る遅れ」という表現を使う',
+        ]
+      : []),
     '- 1項目あたり100〜200字程度',
     '- 日本語で出力する',
     '',
@@ -170,7 +217,11 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action }
 // AI JSON レスポンス（文字列）を3フィールドにパースする
 export function parseMilestoneAiJson(raw) {
   try {
-    const match = raw.match(/\{[\s\S]*\}/)
+    // AI が出力する「スマートクォート」を標準ダブルクォートに正規化
+    const normalized = raw
+      .replace(/[“”„‟″‶]/g, '"')
+      .replace(/[‘’‚‛′‵]/g, "'")
+    const match = normalized.match(/\{[\s\S]*\}/)
     if (!match) return null
     const parsed = JSON.parse(match[0])
     if (

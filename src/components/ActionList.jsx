@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { buildActionEvidencePrompt } from '../utils/aiPrompt'
+import { calculateMoneyProjection } from '../utils/moneyProjection'
+import MoneyImpactCard from './MoneyImpactCard'
 
 const CATEGORY_ICONS = {
   home: '🏠',
@@ -40,12 +42,30 @@ function ActionItem({
   const [copied, setCopied] = useState(false)
   const isOverdue = action.dueDate && new Date(action.dueDate) < new Date()
 
+  // 金額インパクト計算
+  const actionDream = (allDreams || []).find((d) => d.id === action.dreamId) ?? promptContext?.dream
+  const dreamLinks = actionDream ? (allLinks || []).filter((l) => l.dreamId === actionDream.id) : []
+  const delayMonths = Math.max(1, Math.ceil((action.delayImpactDays || 30) / 30))
+  const moneyProjection =
+    actionDream && actionDream.targetAmount > 0 && actionDream.deadline && dreamLinks.length > 0
+      ? calculateMoneyProjection({
+          dream: actionDream,
+          dreamStrategyLinks: dreamLinks,
+          delayScenario: { delayMonths },
+        })
+      : null
+
   async function handleCopyPrompt() {
+    const link = (allLinks || []).find(
+      (l) => l.dreamId === actionDream?.id && l.strategyId === action.strategyId,
+    )
     const prompt = buildActionEvidencePrompt({
-      dream: promptContext?.dream ?? null,
+      dream: promptContext?.dream ?? actionDream ?? null,
       strategy: promptContext?.strategy ?? null,
       milestone: promptContext?.milestone ?? null,
       action,
+      link,
+      moneyProjection,
     })
     await navigator.clipboard.writeText(prompt)
     setCopied(true)
@@ -174,6 +194,7 @@ function ActionItem({
               </div>
             </div>
           )}
+          <MoneyImpactCard projection={moneyProjection} delayMonths={delayMonths} />
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-1.5">
             <p className="text-xs font-medium text-slate-500 mb-0.5">完了すると？</p>
             <p className="text-xs text-emerald-700 leading-relaxed">

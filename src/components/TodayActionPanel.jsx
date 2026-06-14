@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { getMilestoneStatus, getActionPriorityScore, getPriorityReason } from '../utils/progress'
+import { calculateMoneyProjection } from '../utils/moneyProjection'
+import MoneyImpactCard from './MoneyImpactCard'
 
 const CATEGORY_ICONS = {
   home: '🏠',
@@ -113,6 +115,18 @@ function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelet
           .filter(Boolean)
       : []
 
+  // 金額インパクト計算
+  const dreamLinks = dream ? (allLinks || []).filter((l) => l.dreamId === dream.id) : []
+  const delayMonths = Math.max(1, Math.ceil((action.delayImpactDays || 30) / 30))
+  const moneyProjection =
+    dream && dream.targetAmount > 0 && dream.deadline && dreamLinks.length > 0
+      ? calculateMoneyProjection({
+          dream,
+          dreamStrategyLinks: dreamLinks,
+          delayScenario: { delayMonths },
+        })
+      : null
+
   return (
     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
       <div className="flex items-start gap-3">
@@ -205,6 +219,8 @@ function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelet
               ))}
             </div>
           )}
+
+          <MoneyImpactCard projection={moneyProjection} delayMonths={delayMonths} />
         </div>
 
         {onDelete && (

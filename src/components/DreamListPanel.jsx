@@ -221,7 +221,7 @@ export default function DreamListPanel({
                     e.stopPropagation()
                     onDelete(dream.id)
                   }}
-                  className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all text-base leading-none"
+                  className="absolute right-3 top-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-400 transition-all text-lg leading-none p-1"
                   aria-label="削除"
                 >
                   ×
