@@ -2,10 +2,8 @@ import MilestoneStep from './MilestoneStep'
 import { sortByDueDate, getProgressPercent } from '../utils/progress'
 
 export default function MilestoneTimeline({
-  milestones, actions, onAdd,
-  onUpdate, onDelete, onToggle,
-  onAddAction, onToggleAction, onDeleteAction,
-  readOnly = false,
+  milestones, actions,
+  onToggle, onAddAction, onToggleAction, onDeleteAction,
 }) {
   const sorted = sortByDueDate(milestones)
   const today = new Date()
@@ -21,15 +19,7 @@ export default function MilestoneTimeline({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-medium text-slate-500">ロードマップ</p>
-        <button
-          onClick={onAdd}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-        >
-          ＋ 追加
-        </button>
-      </div>
+      <p className="text-xs font-medium text-slate-500 mb-2">ロードマップ</p>
 
       {milestones.length > 0 && (
         <div className="mb-3 space-y-1.5 bg-slate-50 rounded-xl p-3">
@@ -62,7 +52,7 @@ export default function MilestoneTimeline({
 
       {sorted.length === 0 && (
         <p className="text-xs text-slate-400 text-center py-3">
-          マイルストーンを追加してください
+          「編集」タブでマイルストーンを追加してください
         </p>
       )}
 
@@ -72,13 +62,10 @@ export default function MilestoneTimeline({
             key={milestone.id}
             milestone={milestone}
             actions={actions}
-            onChange={patch => onUpdate(milestone.id, patch)}
-            onDelete={() => onDelete(milestone.id)}
             onToggle={() => onToggle(milestone.id)}
             onAddAction={fields => onAddAction(milestone.id, fields)}
             onToggleAction={onToggleAction}
             onDeleteAction={onDeleteAction}
-            readOnly={readOnly}
           />
         ))}
       </div>

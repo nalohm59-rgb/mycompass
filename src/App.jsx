@@ -215,6 +215,10 @@ export default function App() {
     ))
   }
 
+  function updateAction(id, patch) {
+    setActions(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a))
+  }
+
   function deleteAction(id) {
     setActions(prev => prev.filter(a => a.id !== id))
   }
@@ -286,16 +290,9 @@ export default function App() {
                 )}
                 {activeTab === 'roadmap' && (
                   <RoadmapView
-                    dream={selectedDream}
                     strategies={dreamStrategies}
                     milestones={dreamMilestones}
                     actions={dreamActions}
-                    onAddStrategy={() => addStrategy(selectedDream.id)}
-                    onUpdateStrategy={updateStrategy}
-                    onDeleteStrategy={deleteStrategy}
-                    onAddMilestone={strategyId => addMilestone(selectedDream.id, strategyId)}
-                    onUpdateMilestone={updateMilestone}
-                    onDeleteMilestone={deleteMilestone}
                     onToggleMilestone={toggleMilestone}
                     onAddAction={(strategyId, milestoneId, fields) =>
                       addAction(selectedDream.id, strategyId, milestoneId, fields)
@@ -318,9 +315,7 @@ export default function App() {
                     onUpdateMilestone={updateMilestone}
                     onDeleteMilestone={deleteMilestone}
                     onToggleMilestone={toggleMilestone}
-                    onAddAction={(strategyId, milestoneId, fields) =>
-                      addAction(selectedDream.id, strategyId, milestoneId, fields)
-                    }
+                    onUpdateAction={updateAction}
                     onToggleAction={toggleAction}
                     onDeleteAction={deleteAction}
                   />

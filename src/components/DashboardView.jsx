@@ -28,9 +28,6 @@ export default function DashboardView({
       <MoneyRealityCard
         dream={dream}
         strategies={strategies}
-        onChange={() => {}}
-        onAddStrategy={() => {}}
-        readOnly
       />
       <BlockDetector
         dream={dream}

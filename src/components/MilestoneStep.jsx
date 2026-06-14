@@ -11,15 +11,9 @@ const STATUS_CONFIG = {
 
 export default function MilestoneStep({
   milestone, actions,
-  onChange, onDelete, onToggle,
-  onAddAction, onToggleAction, onDeleteAction,
-  readOnly = false,
+  onToggle, onAddAction, onToggleAction, onDeleteAction,
 }) {
   const [showActions, setShowActions] = useState(false)
-  const [showEdit, setShowEdit] = useState(false)
-  const [draftTitle, setDraftTitle] = useState(milestone.title)
-  const [draftDueDate, setDraftDueDate] = useState(milestone.dueDate)
-  const [draftDoneDefinition, setDraftDoneDefinition] = useState(milestone.doneDefinition)
 
   const milestoneActions = actions.filter(a => a.milestoneId === milestone.id)
   const completedActions = milestoneActions.filter(a => a.completed)
@@ -27,21 +21,8 @@ export default function MilestoneStep({
   const status = getMilestoneStatus(milestone, actions)
   const cfg = STATUS_CONFIG[status]
 
-  function openEdit() {
-    setDraftTitle(milestone.title)
-    setDraftDueDate(milestone.dueDate)
-    setDraftDoneDefinition(milestone.doneDefinition)
-    setShowEdit(true)
-  }
-
-  function saveEdit() {
-    onChange({ title: draftTitle, dueDate: draftDueDate, doneDefinition: draftDoneDefinition })
-    setShowEdit(false)
-  }
-
   return (
     <div className={`border rounded-xl overflow-hidden ${cfg.border}`}>
-      {/* メイン行 */}
       <div className="flex items-start gap-3 p-3">
         <span className="text-base flex-shrink-0 mt-0.5">{cfg.icon}</span>
 
@@ -76,7 +57,6 @@ export default function MilestoneStep({
           )}
         </div>
 
-        {/* ボタン群 */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setShowActions(v => !v)}
@@ -84,14 +64,6 @@ export default function MilestoneStep({
           >
             {showActions ? '▲' : '▼'}
           </button>
-          {!readOnly && (
-            <button
-              onClick={openEdit}
-              className="text-xs text-slate-400 hover:text-indigo-600 px-1.5 py-1 rounded transition-colors"
-            >
-              編集
-            </button>
-          )}
           <button
             onClick={onToggle}
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -106,69 +78,9 @@ export default function MilestoneStep({
               </svg>
             )}
           </button>
-          <button
-            onClick={onDelete}
-            className="text-slate-300 hover:text-red-400 transition-colors text-base leading-none"
-            aria-label="削除"
-          >
-            ×
-          </button>
         </div>
       </div>
 
-      {/* 編集フォーム */}
-      {showEdit && (
-        <div className="px-3 pb-3 border-t border-slate-100 pt-3 space-y-2 bg-slate-50/50">
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">マイルストーン名</label>
-            <input
-              type="text"
-              value={draftTitle}
-              onChange={e => setDraftTitle(e.target.value)}
-              autoFocus
-              placeholder="マイルストーン名..."
-              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">期限</label>
-              <input
-                type="date"
-                value={draftDueDate}
-                onChange={e => setDraftDueDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">完了条件</label>
-              <textarea
-                value={draftDoneDefinition}
-                onChange={e => setDraftDoneDefinition(e.target.value)}
-                placeholder="何をもって完了とするか..."
-                rows={2}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => setShowEdit(false)}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              キャンセル
-            </button>
-            <button
-              onClick={saveEdit}
-              className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded-lg transition-colors"
-            >
-              保存
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ActionList（展開時） */}
       {showActions && (
         <div className="px-3 pb-3 border-t border-slate-100 pt-3">
           <ActionList
