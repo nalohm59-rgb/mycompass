@@ -78,6 +78,8 @@ export default function EditView({
         onDelete={onDeleteAction}
         onToggle={onToggleAction}
         dream={dream}
+        allDreams={allDreams}
+        allLinks={allLinks}
       />
     </div>
   )

@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { buildActionEvidencePrompt } from '../utils/aiPrompt'
+import { buildActionEvidencePrompt, parseActionAiJson } from '../utils/aiPrompt'
+import { calculateMoneyProjection } from '../utils/moneyProjection'
+import MoneyImpactCard from './MoneyImpactCard'
 
 const inputClass =
   'w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white'
@@ -7,10 +9,43 @@ const inputClass =
 const textareaClass =
   'w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white'
 
-export default function ActionEditCard({ action, onChange, onDelete, onToggle, promptContext }) {
+export default function ActionEditCard({
+  action,
+  onChange,
+  onDelete,
+  onToggle,
+  promptContext,
+  allDreams,
+  allLinks,
+}) {
   const [expanded, setExpanded] = useState(!action.text)
   const [draft, setDraft] = useState(() => ({ ...action }))
   const [copied, setCopied] = useState(false)
+  const [showPaste, setShowPaste] = useState(false)
+  const [pasteRaw, setPasteRaw] = useState('')
+  const [parseError, setParseError] = useState(false)
+
+  const actionDream =
+    (allDreams || []).find((d) => d.id === draft.dreamId) ?? promptContext?.dream ?? null
+  const dreamLinks = actionDream
+    ? (allLinks || []).filter((l) => l.dreamId === actionDream.id)
+    : []
+  const targetLink = draft.strategyId
+    ? dreamLinks.find((l) => l.strategyId === draft.strategyId) || null
+    : null
+  const delayMonths = Math.max(1, Math.ceil((draft.delayImpactDays || 30) / 30))
+  const moneyProjection =
+    draft.blocksStrategyStart &&
+    actionDream &&
+    actionDream.targetAmount > 0 &&
+    actionDream.deadline &&
+    dreamLinks.length > 0
+      ? calculateMoneyProjection({
+          dream: actionDream,
+          dreamStrategyLinks: dreamLinks,
+          delayScenario: { delayMonths, affectedStrategyId: draft.strategyId },
+        })
+      : null
 
   function set(key) {
     return (e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))
@@ -32,14 +67,34 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
 
   async function handleCopyPrompt() {
     const prompt = buildActionEvidencePrompt({
-      dream: promptContext?.dream ?? null,
+      dream: promptContext?.dream ?? actionDream ?? null,
       strategy: promptContext?.strategy ?? null,
       milestone: promptContext?.milestone ?? null,
       action: draft,
+      link: targetLink,
+      moneyProjection,
     })
     await navigator.clipboard.writeText(prompt)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleApplyJson() {
+    const parsed = parseActionAiJson(pasteRaw)
+    if (!parsed) {
+      setParseError(true)
+      setTimeout(() => setParseError(false), 3000)
+      return
+    }
+    setDraft((prev) => ({
+      ...prev,
+      evidence: parsed.whyNeeded,
+      deadlineEvidence: parsed.whyByThisDate,
+      consequenceIfDelayed: parsed.whatHappensIfDelayed,
+    }))
+    setPasteRaw('')
+    setShowPaste(false)
+    setParseError(false)
   }
 
   const isOverdue = draft.dueDate && new Date(draft.dueDate) < new Date()
@@ -122,6 +177,17 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">内容詳細</label>
+            <textarea
+              value={draft.contentDetail ?? ''}
+              onChange={set('contentDetail')}
+              placeholder={'例：\n・調査すること\n・決めること\n・作成するもの\n・完了条件'}
+              rows={4}
+              className={textareaClass}
+            />
+          </div>
+
+          <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">なぜ必要か</label>
             <textarea
               value={draft.evidence}
@@ -179,6 +245,12 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
             </div>
           </div>
 
+          <MoneyImpactCard
+            projection={moneyProjection}
+            delayMonths={delayMonths}
+            blocksStrategyStart={draft.blocksStrategyStart}
+          />
+
           <details className="group">
             <summary className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer select-none">
               詳細設定（遅延インパクト）
@@ -215,12 +287,48 @@ export default function ActionEditCard({ action, onChange, onDelete, onToggle, p
             </div>
           </details>
 
-          <button
-            onClick={handleCopyPrompt}
-            className="w-full text-xs text-indigo-500 hover:text-indigo-700 border border-indigo-100 hover:border-indigo-200 rounded-lg px-2 py-1.5 transition-colors bg-indigo-50/50"
-          >
-            {copied ? '✓ AI用プロンプトをコピーしました' : '🤖 AI用プロンプトをコピー'}
-          </button>
+          <div className="space-y-1.5 pt-1 border-t border-slate-100">
+            <button
+              onClick={handleCopyPrompt}
+              className="w-full text-xs text-indigo-500 hover:text-indigo-700 border border-indigo-100 hover:border-indigo-200 rounded-lg px-2 py-1.5 transition-colors bg-indigo-50/50"
+            >
+              {copied ? '✓ AI用プロンプトをコピーしました' : '🤖 AI用プロンプトをコピー（3項目生成）'}
+            </button>
+
+            <button
+              onClick={() => setShowPaste((v) => !v)}
+              className="w-full text-xs text-slate-400 hover:text-slate-600 border border-slate-100 hover:border-slate-200 rounded-lg px-2 py-1.5 transition-colors"
+            >
+              {showPaste ? '▲ 閉じる' : '▼ AIの出力（JSON）を貼り付けて自動反映する'}
+            </button>
+
+            {showPaste && (
+              <div className="space-y-1.5">
+                <textarea
+                  value={pasteRaw}
+                  onChange={(e) => {
+                    setPasteRaw(e.target.value)
+                    setParseError(false)
+                  }}
+                  placeholder={'AIからのJSON出力をここに貼り付けてください\n例：\n{\n  "whyNeeded": "...",\n  "whyByThisDate": "...",\n  "whatHappensIfDelayed": "..."\n}'}
+                  rows={6}
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-mono placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50"
+                />
+                {parseError && (
+                  <p className="text-xs text-red-500">
+                    JSONの形式が正しくありません。AIの出力をそのまま貼り付けてください。
+                  </p>
+                )}
+                <button
+                  onClick={handleApplyJson}
+                  disabled={!pasteRaw.trim()}
+                  className="w-full text-xs text-white bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 rounded-lg px-2 py-1.5 transition-colors font-medium"
+                >
+                  3つのフィールドに反映する
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={save}

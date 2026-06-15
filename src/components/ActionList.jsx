@@ -42,16 +42,20 @@ function ActionItem({
   const [copied, setCopied] = useState(false)
   const isOverdue = action.dueDate && new Date(action.dueDate) < new Date()
 
-  // 金額インパクト計算
+  // 金額インパクト計算（blocksStrategyStart=true のときのみ）
   const actionDream = (allDreams || []).find((d) => d.id === action.dreamId) ?? promptContext?.dream
   const dreamLinks = actionDream ? (allLinks || []).filter((l) => l.dreamId === actionDream.id) : []
   const delayMonths = Math.max(1, Math.ceil((action.delayImpactDays || 30) / 30))
   const moneyProjection =
-    actionDream && actionDream.targetAmount > 0 && actionDream.deadline && dreamLinks.length > 0
+    action.blocksStrategyStart &&
+    actionDream &&
+    actionDream.targetAmount > 0 &&
+    actionDream.deadline &&
+    dreamLinks.length > 0
       ? calculateMoneyProjection({
           dream: actionDream,
           dreamStrategyLinks: dreamLinks,
-          delayScenario: { delayMonths },
+          delayScenario: { delayMonths, affectedStrategyId: action.strategyId },
         })
       : null
 
@@ -156,6 +160,14 @@ function ActionItem({
 
       {expanded && (
         <div className="px-3 pb-3 pt-2 border-t border-slate-100 space-y-2 bg-slate-50/50">
+          {action.contentDetail && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-0.5">内容詳細</p>
+              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                {action.contentDetail}
+              </p>
+            </div>
+          )}
           {action.evidence && (
             <div>
               <p className="text-xs font-medium text-slate-500 mb-0.5">なぜ必要か</p>
@@ -194,7 +206,11 @@ function ActionItem({
               </div>
             </div>
           )}
-          <MoneyImpactCard projection={moneyProjection} delayMonths={delayMonths} />
+          <MoneyImpactCard
+            projection={moneyProjection}
+            delayMonths={delayMonths}
+            blocksStrategyStart={action.blocksStrategyStart}
+          />
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-1.5">
             <p className="text-xs font-medium text-slate-500 mb-0.5">完了すると？</p>
             <p className="text-xs text-emerald-700 leading-relaxed">

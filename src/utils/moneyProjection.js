@@ -112,6 +112,7 @@ export function calculateMoneyProjection({ dream, dreamStrategyLinks = [], delay
   const currentAmount = Number(dream.currentAmount || 0)
 
   const linkContribs = dreamStrategyLinks.map((link) => ({
+    strategyId: link.strategyId,
     monthlyImpact: Number(link.expectedMonthlyImpact || 0),
     startDate: link.expectedStartDate ? new Date(link.expectedStartDate) : today,
     rampUpMonths: Number(link.impactRampUpMonths || 0),
@@ -130,10 +131,11 @@ export function calculateMoneyProjection({ dream, dreamStrategyLinks = [], delay
 
   if (delayScenario && delayScenario.delayMonths > 0) {
     const dm = delayScenario.delayMonths
-    const delayedContribs = linkContribs.map((c) => ({
-      ...c,
-      startDate: addMonths(c.startDate, dm),
-    }))
+    const { affectedStrategyId } = delayScenario
+    const delayedContribs = linkContribs.map((c) => {
+      if (affectedStrategyId && c.strategyId !== affectedStrategyId) return c
+      return { ...c, startDate: addMonths(c.startDate, dm) }
+    })
 
     const delayedProjectedAmountAtDeadline = simulate(
       currentAmount, monthlyBase, delayedContribs, today, totalMonths,

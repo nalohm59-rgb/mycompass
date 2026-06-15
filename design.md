@@ -3597,3 +3597,494 @@ export function migrateActions(actions) {
 - [x] `MilestoneStep` の `handleCopyPrompt` が link / moneyProjection を渡す
 - [x] `aiPrompt.js` の両関数が link / moneyProjection を受け取り、金額情報をプロンプトに含める
 - [x] npm run build が通る（51モジュール、エラーなし）
+
+---
+
+## モバイル UX バグ修正（第13次改修）
+
+### 修正内容
+
+#### 1. 叶えたい未来の削除ボタンが iPhone で表示されない
+
+**原因**：`opacity-0 group-hover:opacity-100` はマウスホバーでのみ表示されるため、タッチデバイスでは常に非表示になっていた。
+
+**修正**（`DreamListPanel.jsx`）
+
+```jsx
+// 修正前
+className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 ..."
+
+// 修正後
+className="absolute right-3 top-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 ... active:text-red-400 p-1"
+```
+
+- モバイル（lg 未満）：常時表示
+- PC（lg 以上）：hover 時のみ表示（従来動作を維持）
+- `active:text-red-400`：タップ時の色フィードバック追加
+- `p-1`：タップ領域を拡張
+
+#### 2. AI 出力のスマートクォートで JSON パースが失敗する
+
+**原因**：AI（ChatGPT・Claude など）が出力するテキストに含まれる「スマートクォート」（`"` `"` など）は、標準 JSON の `"` ではないため `JSON.parse` が失敗していた。
+
+**修正**（`src/utils/aiPrompt.js` の `parseMilestoneAiJson`）
+
+```js
+export function parseMilestoneAiJson(raw) {
+  try {
+    // AI が出力するスマートクォートを標準ダブルクォートに正規化
+    const normalized = raw
+      .replace(/[""„‟″‶]/g, '"')
+      .replace(/[''‚‛′‵]/g, "'")
+    const match = normalized.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = JSON.parse(match[0])
+    // ...
+  }
+}
+```
+
+**正規化対象文字**
+
+| 種別 | 文字 |
+|---|---|
+| ダブルクォート系 | `"` `"` `„` `‟` `″` `‶` |
+| シングルクォート系 | `'` `'` `‚` `‛` `′` `‵` |
+
+### 完了条件（第13次改修）
+
+- [x] iPhone で「叶えたい未来」の × ボタンが常時表示される
+- [x] PC では × ボタンが hover 時のみ表示される（従来動作を維持）
+- [x] `parseMilestoneAiJson` がスマートクォートを含む AI 出力でも正常にパースできる
+- [x] npm run build が通る（51モジュール、エラーなし）
+
+---
+
+## Action 詳細化・MoneyImpactCard 精度向上（第14次改修）
+
+### 改修方針
+
+1. **Action に `contentDetail` フィールドを追加**し、「何をするか」を具体的に記述できるようにする
+2. **`calculateMoneyProjection` の遅延対象を特定 Strategy のみに限定**する（全 Strategy を後ろ倒しするのは精度が低かったため）
+3. **MoneyImpactCard を `blocksStrategyStart=true` のときのみ表示**し、関係のない Action に表示しない
+4. **`getActionPriorityScore` を DreamStrategyLink.expectedMonthlyImpact 基準に改善**する
+5. **ActionEditCard に MoneyImpactCard・AI プロンプト改善・contentDetail 入力フォームを追加**する
+
+---
+
+### 修正1: Action に contentDetail フィールドを追加
+
+#### 型定義の変更
+
+```ts
+type Action = {
+  // ... 既存フィールド
+  contentDetail: string    // ← 追加: 内容詳細（何をする・完了条件など）
+  delayImpactDays: number
+  blocksStrategyStart: boolean
+  // ...
+}
+```
+
+#### factory.js
+
+```js
+export function createAction(dreamId, strategyId, milestoneId) {
+  return {
+    // ...
+    delayImpactDays: 30,
+    blocksStrategyStart: false,
+    contentDetail: '',   // ← 追加
+    completed: false,
+    // ...
+  }
+}
+```
+
+#### migration.js
+
+```js
+export function migrateActions(actions) {
+  return actions.map((a) => ({
+    strategyId: null,
+    milestoneId: null,
+    evidence: '',
+    deadlineEvidence: '',
+    consequenceIfDelayed: '',
+    estimatedMinutes: 30,
+    dueDate: '',
+    delayImpactDays: 30,
+    blocksStrategyStart: false,
+    contentDetail: '',    // ← 追加
+    ...a,
+  }))
+}
+```
+
+---
+
+### 修正2: calculateMoneyProjection に affectedStrategyId を追加
+
+遅延シナリオで「特定の Strategy だけを遅らせ、他の Strategy は据え置く」ことが可能になった。
+
+#### delayScenario 型の拡張
+
+```ts
+type MoneyProjectionInput = {
+  dream: Dream
+  dreamStrategyLinks: DreamStrategyLink[]
+  delayScenario?: {
+    delayMonths: number
+    affectedStrategyId?: string   // ← 追加: 指定すると、この Strategy のみ遅延
+  } | null
+}
+```
+
+#### 計算ロジックの変更
+
+```js
+// linkContribs に strategyId を保持するよう変更
+const linkContribs = dreamStrategyLinks.map((link) => ({
+  strategyId: link.strategyId,    // ← 追加
+  monthlyImpact: Number(link.expectedMonthlyImpact || 0),
+  startDate: link.expectedStartDate ? new Date(link.expectedStartDate) : today,
+  rampUpMonths: Number(link.impactRampUpMonths || 0),
+}))
+
+// delayScenario 適用ロジックの変更
+const { affectedStrategyId } = delayScenario
+const delayedContribs = linkContribs.map((c) => {
+  if (affectedStrategyId && c.strategyId !== affectedStrategyId) return c  // 対象外はそのまま
+  return { ...c, startDate: addMonths(c.startDate, dm) }
+})
+```
+
+**後方互換**：`affectedStrategyId` を省略した場合は従来通り全 contrib を遅らせる。
+
+---
+
+### 修正3: MoneyImpactCard に blocksStrategyStart prop を追加
+
+```ts
+interface MoneyImpactCardProps {
+  projection: MoneyProjectionResult | null
+  delayMonths: number
+  blocksStrategyStart?: boolean   // ← 追加: false または undefined の場合は非表示
+}
+```
+
+**表示ルール**
+
+| 条件 | 表示 |
+|---|---|
+| `blocksStrategyStart !== true` | 非表示（null を返す） |
+| `projection` が null | 非表示 |
+| `hasMoneyGoal` が false | 非表示 |
+| `isExpired` が true | 非表示 |
+| `lossByDelay === 0` かつ遅延あり | 非表示 |
+| 上記以外 | 表示 |
+
+---
+
+### 修正4: getActionPriorityScore を DreamStrategyLink 基準に変更
+
+```js
+// 第14次以降
+export function getActionPriorityScore(action, strategy, milestone, link) {
+  let score = 0
+  // ... (dueDate / milestone 部分は変わらず)
+
+  // DreamStrategyLink.expectedMonthlyImpact を優先、なければ旧 strategy.expectedImpact にフォールバック
+  const monthlyImpact =
+    Number(link?.expectedMonthlyImpact) || Number(strategy?.expectedImpact) || 0
+  if (monthlyImpact > 0) {
+    score += Math.min(30, Math.round(monthlyImpact / 10000))
+  }
+
+  // ...
+}
+```
+
+**TodayActionPanel での呼び出し変更**
+
+`actionsWithMeta` の map 内で link を解決してから `getActionPriorityScore` に渡す。
+
+```js
+const link = strategy
+  ? (allLinks || []).find(
+      (l) => l.dreamId === action.dreamId && l.strategyId === action.strategyId,
+    ) || null
+  : null
+const score = getActionPriorityScore(action, strategy, milestoneWithStatus, link)
+```
+
+---
+
+### 修正5: TodayActionPanel の金額インパクト計算を改善
+
+```js
+// blocksStrategyStart=true のときのみ計算
+const moneyProjection =
+  action.blocksStrategyStart &&
+  dream &&
+  dream.targetAmount > 0 &&
+  dream.deadline &&
+  dreamLinks.length > 0
+    ? calculateMoneyProjection({
+        dream,
+        dreamStrategyLinks: dreamLinks,
+        delayScenario: { delayMonths, affectedStrategyId: action.strategyId },  // ← affectedStrategyId 追加
+      })
+    : null
+
+// MoneyImpactCard に blocksStrategyStart を渡す
+<MoneyImpactCard
+  projection={moneyProjection}
+  delayMonths={delayMonths}
+  blocksStrategyStart={action.blocksStrategyStart}   // ← 追加
+/>
+```
+
+**contentDetail 表示**（action.evidence の前）
+
+```jsx
+{action.contentDetail && (
+  <div>
+    <p className="text-xs font-medium text-slate-400 mb-0.5">内容詳細</p>
+    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+      {action.contentDetail}
+    </p>
+  </div>
+)}
+```
+
+---
+
+### 修正6: ActionList の金額インパクト計算を改善
+
+```js
+// blocksStrategyStart=true のときのみ計算
+const moneyProjection =
+  action.blocksStrategyStart &&
+  actionDream &&
+  actionDream.targetAmount > 0 &&
+  actionDream.deadline &&
+  dreamLinks.length > 0
+    ? calculateMoneyProjection({
+        dream: actionDream,
+        dreamStrategyLinks: dreamLinks,
+        delayScenario: { delayMonths, affectedStrategyId: action.strategyId },
+      })
+    : null
+
+// MoneyImpactCard に blocksStrategyStart を渡す
+<MoneyImpactCard
+  projection={moneyProjection}
+  delayMonths={delayMonths}
+  blocksStrategyStart={action.blocksStrategyStart}
+/>
+```
+
+**contentDetail 表示**（evidence の前）
+
+```jsx
+{action.contentDetail && (
+  <div>
+    <p className="text-xs font-medium text-slate-500 mb-0.5">内容詳細</p>
+    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+      {action.contentDetail}
+    </p>
+  </div>
+)}
+```
+
+---
+
+### 修正7: ActionEditCard の大幅強化
+
+#### Props 追加
+
+```ts
+interface ActionEditCardProps {
+  action: Action
+  onChange: (patch: Partial<Action>) => void
+  onDelete: () => void
+  onToggle: () => void
+  promptContext?: { dream: Dream | null; strategy: Strategy | null; milestone: Milestone | null }
+  allDreams?: Dream[]            // ← 追加（moneyProjection 計算用）
+  allLinks?: DreamStrategyLink[] // ← 追加（moneyProjection 計算用）
+}
+```
+
+#### moneyProjection の内部計算
+
+```js
+const actionDream =
+  (allDreams || []).find((d) => d.id === draft.dreamId) ?? promptContext?.dream ?? null
+const dreamLinks = actionDream
+  ? (allLinks || []).filter((l) => l.dreamId === actionDream.id)
+  : []
+const targetLink = draft.strategyId
+  ? dreamLinks.find((l) => l.strategyId === draft.strategyId) || null
+  : null
+const delayMonths = Math.max(1, Math.ceil((draft.delayImpactDays || 30) / 30))
+const moneyProjection =
+  draft.blocksStrategyStart &&
+  actionDream &&
+  actionDream.targetAmount > 0 &&
+  actionDream.deadline &&
+  dreamLinks.length > 0
+    ? calculateMoneyProjection({
+        dream: actionDream,
+        dreamStrategyLinks: dreamLinks,
+        delayScenario: { delayMonths, affectedStrategyId: draft.strategyId },
+      })
+    : null
+```
+
+#### handleCopyPrompt の改善
+
+```js
+async function handleCopyPrompt() {
+  const prompt = buildActionEvidencePrompt({
+    dream: promptContext?.dream ?? actionDream ?? null,
+    strategy: promptContext?.strategy ?? null,
+    milestone: promptContext?.milestone ?? null,
+    action: draft,
+    link: targetLink,           // ← 追加
+    moneyProjection,            // ← 追加
+  })
+  // ...
+}
+```
+
+#### 展開フォームの変更
+
+| 順序 | 追加・変更 |
+|---|---|
+| 1 | 行動内容（変更なし） |
+| 2 | **内容詳細（追加）** → textarea（4行）|
+| 3 | なぜ必要か（変更なし） |
+| 4 | なぜこの日まで？（変更なし） |
+| 5 | 遅れると何が起きる？（変更なし） |
+| 6 | 見積もり・期限（変更なし） |
+| 7 | **MoneyImpactCard（追加）** |
+| 8 | 詳細設定（遅延インパクト）（変更なし） |
+| 9 | AI用プロンプト・JSON貼り付け（変更なし） |
+
+---
+
+### 修正8: ActionEditList / EditView の Props 変更
+
+#### ActionEditList
+
+```ts
+interface ActionEditListProps {
+  strategies: Strategy[]
+  milestones: Milestone[]
+  actions: Action[]
+  onAdd: (strategyId: string | null, milestoneId: string | null) => void
+  onUpdate: (id: string, patch: Partial<Action>) => void
+  onDelete: (id: string) => void
+  onToggle: (id: string) => void
+  dream?: Dream
+  allDreams?: Dream[]            // ← 追加
+  allLinks?: DreamStrategyLink[] // ← 追加
+}
+```
+
+#### EditView
+
+```jsx
+// 第14次以降
+<ActionEditList
+  strategies={strategies}
+  milestones={milestones}
+  actions={actions}
+  onAdd={onAddAction}
+  onUpdate={onUpdateAction}
+  onDelete={onDeleteAction}
+  onToggle={onToggleAction}
+  dream={dream}
+  allDreams={allDreams}   // ← 追加（EditView が App.jsx から受け取り済み）
+  allLinks={allLinks}     // ← 追加
+/>
+```
+
+---
+
+### 修正9: aiPrompt.js に contentDetail を追加
+
+#### buildActionEvidencePrompt の変更
+
+```js
+`Action:\n${action?.text ?? ''}`,
+...(action?.contentDetail ? [`\n内容詳細:\n${action.contentDetail}`] : []),  // ← 追加
+'',
+`Actionの期限:\n${formatJpDate(action?.dueDate)}（残り${getRemainingText(action?.dueDate)}）`,
+```
+
+---
+
+### 型定義の最終版（第14次時点）
+
+```ts
+type Action = {
+  id: string
+  dreamId: string
+  strategyId: string | null
+  milestoneId: string | null
+  text: string
+  evidence: string              // なぜ必要か
+  deadlineEvidence: string      // なぜこの日まで？
+  consequenceIfDelayed: string  // 遅れると何が起きる？
+  contentDetail: string         // 内容詳細（第14次追加）
+  estimatedMinutes: number
+  dueDate: string
+  delayImpactDays: number       // 後続が遅れる日数（第12次追加）
+  blocksStrategyStart: boolean  // Strategy 開始ブロックフラグ（第12次追加）
+  completed: boolean
+  completedAt: string | null
+  createdAt: string
+}
+```
+
+```ts
+// moneyProjection.js の delayScenario 型（第14次更新）
+type DelayScenario = {
+  delayMonths: number
+  affectedStrategyId?: string   // 指定した Strategy のみ遅延（省略時は全 Strategy）
+}
+```
+
+---
+
+### localStorage 補完値（第14次追加分）
+
+| エンティティ | フィールド | デフォルト値 |
+|---|---|---|
+| Action | `contentDetail` | `""` |
+
+---
+
+### 完了条件（第14次改修）
+
+- [x] `Action.contentDetail` フィールドが factory.js・migration.js に追加されている
+- [x] `calculateMoneyProjection` が `delayScenario.affectedStrategyId` に対応している（指定 Strategy のみ遅延）
+- [x] `MoneyImpactCard` が `blocksStrategyStart` prop を持ち、false の場合は非表示
+- [x] `getActionPriorityScore` が第4引数 `link` を受け取り、`link.expectedMonthlyImpact` を優先使用する
+- [x] `TodayActionPanel` が actionsWithMeta 内で link を解決し priority score に反映する
+- [x] `TodayActionPanel` の moneyProjection が `blocksStrategyStart=true` のときのみ計算される
+- [x] `TodayActionPanel` が `affectedStrategyId` を delayScenario に渡す
+- [x] `TodayActionPanel` が `contentDetail` を表示する
+- [x] `ActionList` の moneyProjection が `blocksStrategyStart=true` のときのみ計算される
+- [x] `ActionList` が `affectedStrategyId` を delayScenario に渡す
+- [x] `ActionList` が `contentDetail` を表示する
+- [x] `ActionEditCard` が `allDreams` / `allLinks` props を受け取る
+- [x] `ActionEditCard` が内部で moneyProjection を計算し MoneyImpactCard を表示する
+- [x] `ActionEditCard` が `handleCopyPrompt` に link / moneyProjection を渡す
+- [x] `ActionEditCard` に `contentDetail` の textarea 入力欄がある
+- [x] `ActionEditList` が `allDreams` / `allLinks` props を受け取り全 ActionEditCard に渡す
+- [x] `EditView` が `allDreams` / `allLinks` を ActionEditList に渡す
+- [x] `buildActionEvidencePrompt` が `contentDetail` をプロンプトに含める
+- [x] npm run build が通る（51モジュール、エラーなし）

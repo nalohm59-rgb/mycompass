@@ -83,6 +83,7 @@ export function createAction(dreamId, strategyId, milestoneId) {
     dueDate: '',
     delayImpactDays: 30,
     blocksStrategyStart: false,
+    contentDetail: '',
     completed: false,
     completedAt: null,
     createdAt: new Date().toISOString(),

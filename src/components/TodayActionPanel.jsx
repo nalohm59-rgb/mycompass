@@ -41,7 +41,12 @@ export default function TodayActionPanel({
     const milestone = milestones.find((m) => m.id === action.milestoneId)
     const computedStatus = milestone ? getMilestoneStatus(milestone, actions) : null
     const milestoneWithStatus = milestone ? { ...milestone, computedStatus } : null
-    const score = getActionPriorityScore(action, strategy, milestoneWithStatus)
+    const link = strategy
+      ? (allLinks || []).find(
+          (l) => l.dreamId === action.dreamId && l.strategyId === action.strategyId,
+        ) || null
+      : null
+    const score = getActionPriorityScore(action, strategy, milestoneWithStatus, link)
     const reason = getPriorityReason(action, milestoneWithStatus)
     return { action, strategy, milestone, score, reason }
   })
@@ -115,15 +120,19 @@ function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelet
           .filter(Boolean)
       : []
 
-  // 金額インパクト計算
+  // 金額インパクト計算（blocksStrategyStart=true のときのみ）
   const dreamLinks = dream ? (allLinks || []).filter((l) => l.dreamId === dream.id) : []
   const delayMonths = Math.max(1, Math.ceil((action.delayImpactDays || 30) / 30))
   const moneyProjection =
-    dream && dream.targetAmount > 0 && dream.deadline && dreamLinks.length > 0
+    action.blocksStrategyStart &&
+    dream &&
+    dream.targetAmount > 0 &&
+    dream.deadline &&
+    dreamLinks.length > 0
       ? calculateMoneyProjection({
           dream,
           dreamStrategyLinks: dreamLinks,
-          delayScenario: { delayMonths },
+          delayScenario: { delayMonths, affectedStrategyId: action.strategyId },
         })
       : null
 
@@ -156,6 +165,15 @@ function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelet
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5 leading-relaxed">
               ✓ これを完了すると、{completionEffect}
             </p>
+          )}
+
+          {action.contentDetail && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">内容詳細</p>
+              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                {action.contentDetail}
+              </p>
+            </div>
           )}
 
           {action.evidence && (
@@ -220,7 +238,11 @@ function TopAction({ item, dreams, allLinks, completionEffect, onToggle, onDelet
             </div>
           )}
 
-          <MoneyImpactCard projection={moneyProjection} delayMonths={delayMonths} />
+          <MoneyImpactCard
+            projection={moneyProjection}
+            delayMonths={delayMonths}
+            blocksStrategyStart={action.blocksStrategyStart}
+          />
         </div>
 
         {onDelete && (

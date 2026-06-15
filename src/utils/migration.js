@@ -25,6 +25,7 @@ export function migrateActions(actions) {
     dueDate: '',
     delayImpactDays: 30,
     blocksStrategyStart: false,
+    contentDetail: '',
     ...a,
   }))
 }

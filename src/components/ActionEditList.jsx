@@ -9,6 +9,8 @@ export default function ActionEditList({
   onToggle,
   onAdd,
   dream,
+  allDreams,
+  allLinks,
 }) {
   if (strategies.length === 0) {
     return (
@@ -85,6 +87,8 @@ export default function ActionEditList({
                       onDelete={() => onDelete(action.id)}
                       onToggle={() => onToggle(action.id)}
                       promptContext={{ dream, strategy, milestone }}
+                      allDreams={allDreams}
+                      allLinks={allLinks}
                     />
                   ))}
                 </div>
@@ -103,6 +107,8 @@ export default function ActionEditList({
                     onDelete={() => onDelete(action.id)}
                     onToggle={() => onToggle(action.id)}
                     promptContext={{ dream, strategy, milestone: null }}
+                    allDreams={allDreams}
+                    allLinks={allLinks}
                   />
                 ))}
               </div>
@@ -123,6 +129,8 @@ export default function ActionEditList({
               onDelete={() => onDelete(action.id)}
               onToggle={() => onToggle(action.id)}
               promptContext={{ dream, strategy: null, milestone: null }}
+              allDreams={allDreams}
+              allLinks={allLinks}
             />
           ))}
         </div>

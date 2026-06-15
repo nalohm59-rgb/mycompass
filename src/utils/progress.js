@@ -52,7 +52,7 @@ export function getDreamHealthStatus({
   return 'good'
 }
 
-export function getActionPriorityScore(action, strategy, milestone) {
+export function getActionPriorityScore(action, strategy, milestone, link) {
   let score = 0
   const today = new Date()
   if (action.dueDate) {
@@ -64,8 +64,10 @@ export function getActionPriorityScore(action, strategy, milestone) {
     else if (diffDays <= 7) score += 40
   }
   if (milestone?.computedStatus === 'in_progress') score += 30
-  if (strategy?.impactUnit === 'monthly_yen') {
-    score += Math.min(30, Math.round((Number(strategy.expectedImpact) || 0) / 10000))
+  const monthlyImpact =
+    Number(link?.expectedMonthlyImpact) || Number(strategy?.expectedImpact) || 0
+  if (monthlyImpact > 0) {
+    score += Math.min(30, Math.round(monthlyImpact / 10000))
   }
   if (action.estimatedMinutes && action.estimatedMinutes <= 60) score += 10
   if (action.evidence?.trim()) score += 5

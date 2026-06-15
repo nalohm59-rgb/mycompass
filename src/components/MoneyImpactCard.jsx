@@ -25,8 +25,10 @@ function Cell({ label, amount, surplus, shortage, achievementMonth }) {
  * Props:
  *   projection: calculateMoneyProjection() の戻り値
  *   delayMonths: 遅延シナリオの月数
+ *   blocksStrategyStart: このActionがStrategy開始をブロックする場合のみ表示
  */
-export default function MoneyImpactCard({ projection, delayMonths = 1 }) {
+export default function MoneyImpactCard({ projection, delayMonths = 1, blocksStrategyStart }) {
+  if (!blocksStrategyStart) return null
   if (!projection?.hasMoneyGoal || projection.isExpired) return null
   if (!projection.projectedAmountAtDeadline) return null
 

@@ -187,6 +187,7 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action, 
     `Milestoneの期限:\n${formatJpDate(milestone?.dueDate)}（残り${getRemainingText(milestone?.dueDate)}）`,
     '',
     `Action:\n${action?.text ?? ''}`,
+    ...(action?.contentDetail ? [`\n内容詳細:\n${action.contentDetail}`] : []),
     '',
     `Actionの期限:\n${formatJpDate(action?.dueDate)}（残り${getRemainingText(action?.dueDate)}）`,
     '',
@@ -207,32 +208,60 @@ export function buildActionEvidencePrompt({ dream, strategy, milestone, action, 
     '- 日本語で出力する',
     '',
     '# 出力形式',
+    '必ず以下のJSON形式のみで返してください。説明文・Markdownコードブロックは不要です。',
     '',
-    'なぜ必要か：',
-    'なぜこの日まで？：',
-    '遅れると何が起きる？：',
+    '{',
+    '  "whyNeeded": "string",',
+    '  "whyByThisDate": "string",',
+    '  "whatHappensIfDelayed": "string"',
+    '}',
   ].join('\n')
 }
 
-// AI JSON レスポンス（文字列）を3フィールドにパースする
+function normalizeQuotes(raw) {
+  return raw
+    .replace(/[“”„‟″‶]/g, '"')
+    .replace(/[‘’‚‛′‵]/g, "'")
+}
+
+// Milestone AI JSON（whyByThisDate / whatHappensIfDelayed / whatProgressesWhenCompleted）をパース
 export function parseMilestoneAiJson(raw) {
   try {
-    // AI が出力する「スマートクォート」を標準ダブルクォートに正規化
-    const normalized = raw
-      .replace(/[“”„‟″‶]/g, '"')
-      .replace(/[‘’‚‛′‵]/g, "'")
-    const match = normalized.match(/\{[\s\S]*\}/)
+    const match = normalizeQuotes(raw).match(/\{[\s\S]*\}/)
     if (!match) return null
     const parsed = JSON.parse(match[0])
     if (
-      typeof parsed.whyByThisDate === 'string' ||
-      typeof parsed.whatHappensIfDelayed === 'string' ||
+      typeof parsed.whyByThisDate === 'string' &&
+      typeof parsed.whatHappensIfDelayed === 'string' &&
       typeof parsed.whatProgressesWhenCompleted === 'string'
     ) {
       return {
-        whyByThisDate: parsed.whyByThisDate ?? '',
-        whatHappensIfDelayed: parsed.whatHappensIfDelayed ?? '',
-        whatProgressesWhenCompleted: parsed.whatProgressesWhenCompleted ?? '',
+        whyByThisDate: parsed.whyByThisDate,
+        whatHappensIfDelayed: parsed.whatHappensIfDelayed,
+        whatProgressesWhenCompleted: parsed.whatProgressesWhenCompleted,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Action AI JSON（whyNeeded / whyByThisDate / whatHappensIfDelayed）をパース
+export function parseActionAiJson(raw) {
+  try {
+    const match = normalizeQuotes(raw).match(/\{[\s\S]*\}/)
+    if (!match) return null
+    const parsed = JSON.parse(match[0])
+    if (
+      typeof parsed.whyNeeded === 'string' &&
+      typeof parsed.whyByThisDate === 'string' &&
+      typeof parsed.whatHappensIfDelayed === 'string'
+    ) {
+      return {
+        whyNeeded: parsed.whyNeeded,
+        whyByThisDate: parsed.whyByThisDate,
+        whatHappensIfDelayed: parsed.whatHappensIfDelayed,
       }
     }
     return null
